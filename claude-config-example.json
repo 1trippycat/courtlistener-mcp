@@ -1,0 +1,19 @@
+# Example Claude Desktop Configuration
+# Add this to your claude_desktop_config.json file
+
+{
+  "mcpServers": {
+    "courtlistener": {
+      "command": "node",
+      "args": ["/absolute/path/to/courtlistener-mcp/build/index.js"]
+    }
+  }
+}
+
+# For Windows users:
+# Replace the path with something like:
+# "args": ["C:\\absolute\\path\\to\\courtlistener-mcp\\build\\index.js"]
+
+# Configuration file locations:
+# macOS/Linux: ~/Library/Application Support/Claude/claude_desktop_config.json
+# Windows: %APPDATA%\Claude\claude_desktop_config.json

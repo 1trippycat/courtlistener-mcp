@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  courtlistener-mcp:
+    build: .
+    container_name: courtlistener-mcp-server
+    environment:
+      - NODE_ENV=production
+      # Add your CourtListener API token here if you have one
+      # - COURTLISTENER_API_TOKEN=your-token-here
+    volumes:
+      # Mount a volume for persistent data if needed
+      - mcp-data:/app/data
+    restart: unless-stopped
+    # For stdio transport, we don't need to expose ports
+    # ports:
+    #   - "3000:3000"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mcp-data:
