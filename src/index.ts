@@ -2114,7 +2114,7 @@ async function main() {
 // Only start the server if this file is being run directly
 // Check if we're running this file directly (not importing it)
 const isMainModule = process.argv[1] && (process.argv[1].endsWith('index.js') || process.argv[1].endsWith('index.ts')) || process.env.DOCKER_CONTAINER === 'true';
-if (isMainModule && process.env.NODE_ENV !== 'test') {
+if (isMainModule && (process.env.NODE_ENV !== 'test' || process.env.DOCKER_CONTAINER === 'true')) {
   main().catch((error) => {
     console.error("Server startup failed:", error);
     process.exit(1);

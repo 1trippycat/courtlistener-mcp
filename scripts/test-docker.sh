@@ -23,11 +23,15 @@ print_usage() {
     echo ""
     echo "Usage: $0 <command>"
     echo ""
-    echo "Commands:"
-    echo "  test        - Run all Docker tests"
-    echo "  integration - Run integration tests only"
+    echo "Test Commands:"
+    echo "  test        - Run all Docker tests (no auto-cleanup)"
+    echo "  integration - Run integration tests only (no auto-cleanup)"
+    echo ""
+    echo "Cleanup Commands:"
     echo "  cleanup     - Clean up test containers and networks (preserves volumes)"
     echo "  full-cleanup - Clean up everything including volumes (forces rebuild)"
+    echo ""
+    echo "Utility Commands:"
     echo "  rebuild     - Force rebuild of all images"
     echo "  logs        - Show test container logs"
     echo "  shell       - Open shell in test container"
@@ -36,6 +40,11 @@ print_usage() {
     echo "Environment Variables:"
     echo "  COURTLISTENER_API_TOKEN - Your API token (required)"
     echo "  OLLAMA_HOST            - Ollama endpoint (default: http://ollama:11434)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 integration           # Run tests, keep containers"
+    echo "  $0 integration && $0 cleanup  # Run tests then cleanup"
+    echo "  $0 full-cleanup          # Remove everything"
 }
 
 check_dependencies() {
@@ -84,10 +93,6 @@ run_docker_tests() {
     echo -e "${GREEN}🐳 Running Docker Tests${NC}"
     echo "======================="
     
-    # Clean up networks and orphaned containers, but preserve volumes
-    echo "🧹 Cleaning up networks and orphaned containers..."
-    docker-compose -f docker-compose.test.yml down --remove-orphans 2>/dev/null || true
-    
     # Check if we need to build (only build if images don't exist)
     if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
        ! docker image inspect courtlistenermcp_mcp-test-runner >/dev/null 2>&1; then
@@ -122,65 +127,78 @@ run_docker_tests() {
     done
     
     echo "🧪 Running integration tests..."
-    docker-compose -f docker-compose.test.yml run --rm mcp-test-runner
-    
-    echo "🧹 Cleaning up..."
-    docker-compose -f docker-compose.test.yml down
+    if docker-compose -f docker-compose.test.yml run --rm mcp-test-runner npm run test:docker; then
+        echo "✅ Tests completed successfully"
+        echo "💡 Use '$0 cleanup' to stop containers or '$0 full-cleanup' to remove everything"
+    else
+        echo -e "${RED}❌ Tests failed${NC}"
+        echo "💡 Use '$0 cleanup' to stop containers or '$0 full-cleanup' to remove everything"
+        return 1
+    fi
 }
 
 run_integration_only() {
     echo -e "${GREEN}🧪 Running Integration Tests Only${NC}"
     echo "=================================="
     
-    # Clean up any existing resources first, but preserve volumes to avoid re-downloading models
-    echo "🧹 Cleaning up networks and orphaned containers..."
-    docker-compose -f docker-compose.test.yml down --remove-orphans 2>/dev/null || true
-    
     # Check if we need to build (only build if images don't exist or source changed)
-    if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
-       ! docker image inspect courtlistenermcp_mcp-test-runner >/dev/null 2>&1; then
+    if ! docker image inspect courtlistenermcp_mcp-test-runner >/dev/null 2>&1; then
         echo "🔧 Building test containers (images don't exist)..."
         docker-compose -f docker-compose.test.yml build
     else
         echo "✅ Using existing container images (use 'rebuild' to force rebuild)"
     fi
     
-    # Check if Ollama is already running and healthy
-    if docker-compose -f docker-compose.test.yml ps ollama 2>/dev/null | grep -q "(healthy)"; then
-        echo "✅ Ollama is already healthy, reusing existing container"
+    # Ensure the external network exists
+    if ! docker network ls | grep -q "courtlistener_integration_net"; then
+        echo "🔗 Creating external network..."
+        docker network create courtlistener_integration_net
     else
-        # Start Ollama service and wait for it to be healthy
-        echo "🦙 Starting Ollama service..."
-        docker-compose -f docker-compose.test.yml up -d ollama
-        
-        echo "⏳ Waiting for Ollama to be healthy (max 300s - 5 minutes)..."
-        for i in {1..60}; do
-            status=$(docker-compose -f docker-compose.test.yml ps ollama | grep test-ollama)
-            if echo "$status" | grep -q "(healthy)"; then
-                echo "✅ Ollama is healthy after $((i*5)) seconds"
-                break
-            elif echo "$status" | grep -q "(health: starting)"; then
-                echo "  Ollama still starting... ($((i*5))s elapsed)"
-            elif [ $i -eq 60 ]; then
-                echo -e "${RED}❌ Ollama failed to become healthy after 300 seconds${NC}"
-                echo "Container status:"
-                docker-compose -f docker-compose.test.yml ps ollama
-                echo "Container logs:"
-                docker-compose -f docker-compose.test.yml logs --tail 20 ollama
-                return 1
-            else
-                echo "  Still waiting... ($((i*5))s elapsed)"
-            fi
-            sleep 5
-        done
+        echo "✅ External network already exists"
     fi
     
-    echo "🦙 Ensuring model is available..."
-    docker-compose -f docker-compose.test.yml exec -T ollama ollama pull llama3.2:1b || true
+    # Start all services at once and let Docker Compose handle dependencies
+    echo "🚀 Starting all services..."
+    docker-compose -f docker-compose.test.yml up -d
     
-    # Run integration tests inside the container where OLLAMA_HOST is properly set
+    # Wait for services to be healthy
+    echo "⏳ Waiting for services to be healthy (max 300s - 5 minutes)..."
+    for i in {1..60}; do
+        # Check if Ollama is healthy
+        ollama_status=$(docker-compose -f docker-compose.test.yml ps ollama | grep test-ollama || echo "not found")
+        test_runner_status=$(docker-compose -f docker-compose.test.yml ps mcp-test-runner | grep mcp-test-runner || echo "not found")
+        
+        if echo "$ollama_status" | grep -q "(healthy)" && echo "$test_runner_status" | grep -q "Up"; then
+            echo "✅ All services are healthy after $((i*5)) seconds"
+            break
+        elif [ $i -eq 60 ]; then
+            echo -e "${RED}❌ Services failed to become healthy after 300 seconds${NC}"
+            echo "Container status:"
+            docker-compose -f docker-compose.test.yml ps
+            echo "Ollama logs:"
+            docker-compose -f docker-compose.test.yml logs --tail 20 ollama
+            echo "Test runner logs:"
+            docker-compose -f docker-compose.test.yml logs --tail 20 mcp-test-runner
+            return 1
+        else
+            echo "  Services still starting... ($((i*5))s elapsed)"
+        fi
+        sleep 5
+    done
+    
+    echo "🦙 Ensuring model is available..."
+    docker-compose -f docker-compose.test.yml exec -T ollama ollama pull qwen2.5:7b || true
+    
+    # Run integration tests using exec instead of run to avoid network recreation
     echo "🧪 Running integration tests in container..."
-    docker-compose -f docker-compose.test.yml run --rm mcp-test-runner
+    if docker-compose -f docker-compose.test.yml exec -T mcp-test-runner npm run test:docker; then
+        echo "✅ Integration tests completed successfully"
+        echo "💡 Containers left running for reuse (use '$0 cleanup' to stop them)"
+    else
+        echo -e "${RED}❌ Integration tests failed${NC}"
+        echo "💡 Use '$0 cleanup' to stop containers or '$0 full-cleanup' to remove everything"
+        return 1
+    fi
 }
 
 cleanup_containers() {
@@ -195,8 +213,8 @@ cleanup_containers() {
     echo "🧽 Cleaning up dangling resources..."
     docker system prune -f 2>/dev/null || true
     
-    echo "✅ Smart cleanup complete (volumes preserved)"
-    echo "💡 Use 'full-cleanup' to remove volumes and force model re-download"
+    echo "✅ Smart cleanup complete (volumes and external network preserved)"
+    echo "💡 Use 'full-cleanup' to remove volumes and external network"
 }
 
 full_cleanup_containers() {
@@ -214,6 +232,10 @@ full_cleanup_containers() {
     # Clean up any dangling images and networks
     echo "🧽 Cleaning up dangling resources..."
     docker system prune -f 2>/dev/null || true
+    
+    # Remove the external network
+    echo "🗑️  Removing external network..."
+    docker network rm courtlistener_integration_net 2>/dev/null || true
     
     echo "✅ Full cleanup complete"
 }

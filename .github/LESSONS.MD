@@ -38,6 +38,22 @@
 **Solution**: Implement tiered cleanup - preserve healthy containers, only destroy when forcing rebuild or on code changes  
 **Prevention**: Always clean up dangling images, networks, and volumes between builds, but preserve working containers when possible  
 
+### Lesson: Network Configuration Conflicts Require Full Cleanup
+**Date**: July 12, 2025  
+**Issue**: Docker network recreation errors when changing IPv6/IPv4 settings mid-development  
+**Problem**: Docker caches network configurations and can't update them with active containers  
+**Solution**: Do full cleanup before significant network configuration changes  
+**Implementation**: Use `full-cleanup` command to remove everything, then rebuild from scratch  
+**Prevention**: Test network configs in isolated environments, avoid changing core network settings during active development  
+
+### Lesson: Separate Cleanup Commands for Development Efficiency
+**Date**: July 12, 2025  
+**Issue**: Auto-cleanup in test scripts removes containers needed for iterative testing  
+**Problem**: Developers want to run tests multiple times but preserve expensive resources like Ollama models  
+**Solution**: Remove all auto-cleanup from test commands, provide explicit cleanup commands instead  
+**Implementation**: `cleanup` (preserve volumes), `full-cleanup` (remove everything), explicit calls only  
+**Prevention**: Never auto-clean during development, always let users decide when to clean resources  
+
 ## Project Organization
 
 ### Lesson: Working software is #1 priority

@@ -15,6 +15,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:integration": "jest tests/integration-*.test.ts",
+    "test:e2e": "jest tests/integration-e2e.test.ts",
     "test:security": "jest tests/security*.test.ts",
     "test:docker": "jest tests/integration-*.test.ts",
     "docker:test": "docker-compose -f docker-compose.test.yml up --build --profile test",

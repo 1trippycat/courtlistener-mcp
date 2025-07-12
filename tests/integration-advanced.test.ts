@@ -172,7 +172,7 @@ describe('Advanced Ollama MCP Integration Tests', () => {
     const tagsResponse = await fetch(`${OLLAMA_HOST}/api/tags`);
     const tagsData = await tagsResponse.json();
     
-    const functionCallingModels = ['llama3.1:8b', 'llama3.1', 'qwen2.5'];
+    const functionCallingModels = ['qwen2.5:7b', 'qwen2.5', 'llama3.1:8b', 'llama3.1'];
     const availableModels = tagsData.models.map((m: any) => m.name);
     const model = functionCallingModels.find(m => availableModels.includes(m)) || availableModels[0];
     
