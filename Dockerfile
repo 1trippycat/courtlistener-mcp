@@ -29,6 +29,10 @@ RUN npm ci --only=production --audit=false && \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S mcp -u 1001 -G nodejs
 
+# Copy and set up entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Change ownership of the app directory and remove write permissions
 RUN chown -R mcp:nodejs /app && \
     chmod -R 755 /app && \
@@ -46,8 +50,8 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "console.log('Health check: OK')" || exit 1
 
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
+# Use dumb-init for proper signal handling and entrypoint script
+ENTRYPOINT ["dumb-init", "--", "/app/entrypoint.sh"]
 
-# Run the MCP server
-CMD ["node", "build/index.js"]
+# Default command (can be overridden)
+CMD []

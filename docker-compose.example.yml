@@ -4,7 +4,6 @@ services:
   # CourtListener MCP Server - Standalone
   courtlistener-mcp:
     image: ghcr.io/1trippycat/courtlistener-mcp:latest
-    container_name: courtlistener-mcp
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
@@ -12,6 +11,8 @@ services:
       - RATE_LIMIT_WINDOW_MS=60000
       - REQUEST_TIMEOUT_MS=30000
     restart: unless-stopped
+    tty: true
+    stdin_open: true
     healthcheck:
       test: ["CMD", "node", "-e", "console.log('healthy')"]
       interval: 30s
@@ -20,36 +21,15 @@ services:
     networks:
       - mcp-network
 
-  # Optional: Open WebUI for AI chat interface with MCP integration
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: open-webui
-    ports:
-      - "3000:8080"
-    volumes:
-      - open-webui-data:/app/backend/data
-    environment:
-      - 'MCP_SERVERS={"courtlistener": {"command": "docker", "args": ["exec", "courtlistener-mcp", "node", "/app/build/index.js"]}}'
-    depends_on:
-      courtlistener-mcp:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - mcp-network
-
-  # Example: Add to your existing services
-  # your-existing-service:
-  #   image: your-app:latest
+  # Example: Integrate with your existing MCP client
+  # your-mcp-client:
+  #   image: your-client:latest
   #   environment:
-  #     - MCP_SERVER_HOST=courtlistener-mcp
+  #     - MCP_SERVER_COMMAND=docker exec -i courtlistener-mcp node /app/build/index.js
   #   depends_on:
   #     - courtlistener-mcp
   #   networks:
   #     - mcp-network
-
-volumes:
-  open-webui-data:
-    driver: local
 
 networks:
   mcp-network:

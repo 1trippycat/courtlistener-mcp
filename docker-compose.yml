@@ -6,23 +6,13 @@ services:
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
-      - RATE_LIMIT_REQUESTS=100
-      - RATE_LIMIT_WINDOW_MS=60000
-      - REQUEST_TIMEOUT_MS=30000
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "console.log('healthy')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # Keep container alive for MCP connections
+    tty: true
+    stdin_open: true
     networks:
       - mcp-network
-    # MCP servers communicate via stdio, not HTTP ports
-    # For debugging, you can uncomment the following to access the container:
-    # ports:
-    #   - "8080:8080"  # Only if you add HTTP endpoints for debugging
-
 
 networks:
   mcp-network:
-    driver: bridge
+    external: true

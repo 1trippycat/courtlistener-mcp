@@ -315,11 +315,8 @@ cp docker-compose.example.yml docker-compose.yml
 cp .env.example .env
 # Edit .env and set your COURTLISTENER_API_TOKEN
 
-# Start all services (including optional Open WebUI)
+# Start the MCP server
 docker-compose up -d
-
-# Or start just the MCP server
-docker-compose up -d courtlistener-mcp
 
 # Check logs
 docker-compose logs -f courtlistener-mcp
