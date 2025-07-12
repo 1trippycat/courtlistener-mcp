@@ -3,7 +3,6 @@ version: '3.8'
 services:
   courtlistener-mcp:
     image: ghcr.io/1trippycat/courtlistener-mcp:latest
-    container_name: courtlistener-mcp
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
@@ -23,26 +22,6 @@ services:
     # ports:
     #   - "8080:8080"  # Only if you add HTTP endpoints for debugging
 
-  # Optional: Open WebUI for AI-powered legal research
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: open-webui
-    ports:
-      - "3000:8080"
-    volumes:
-      - open-webui-data:/app/backend/data
-    environment:
-      # Configure MCP server connection  
-      - 'MCP_SERVERS={"courtlistener": {"command": "docker", "args": ["exec", "courtlistener-mcp", "node", "/app/build/index.js"]}}'
-    depends_on:
-      - courtlistener-mcp
-    restart: unless-stopped
-    networks:
-      - mcp-network
-
-volumes:
-  open-webui-data:
-    driver: local
 
 networks:
   mcp-network:
