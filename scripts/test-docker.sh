@@ -27,13 +27,14 @@ print_usage() {
     echo "  test        - Run all Docker tests"
     echo "  integration - Run integration tests only"
     echo "  cleanup     - Clean up test containers and networks"
+    echo "  rebuild     - Force rebuild of all images"
     echo "  logs        - Show test container logs"
     echo "  shell       - Open shell in test container"
     echo "  help        - Show this help"
     echo ""
     echo "Environment Variables:"
     echo "  COURTLISTENER_API_TOKEN - Your API token (required)"
-    echo "  OLLAMA_HOST            - Ollama endpoint (default: http://ai_ollama:11434)"
+    echo "  OLLAMA_HOST            - Ollama endpoint (default: http://ollama:11434)"
 }
 
 check_dependencies() {
@@ -82,24 +83,40 @@ run_docker_tests() {
     echo -e "${GREEN}🐳 Running Docker Tests${NC}"
     echo "======================="
     
-    # Build and run test containers
-    echo "🔧 Building test containers..."
-    docker-compose -f docker-compose.test.yml build
+    # Clean up any existing resources first
+    echo "🧹 Cleaning up existing containers and networks..."
+    docker-compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
     
-    echo "🚀 Starting MCP server container..."
-    docker-compose -f docker-compose.test.yml up -d
-    
-    # Wait for health check
-    echo "⏳ Waiting for MCP server to be healthy..."
-    timeout 60 bash -c 'until docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done'
-    
-    if ! docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; then
-        echo -e "${RED}❌ MCP server failed to start properly${NC}"
-        docker-compose -f docker-compose.test.yml logs courtlistener-mcp-test
-        return 1
+    # Check if we need to build (only build if images don't exist)
+    if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
+       ! docker image inspect courtlistenermcp_mcp-test-runner >/dev/null 2>&1; then
+        echo "🔧 Building test containers (images don't exist)..."
+        docker-compose -f docker-compose.test.yml build
+    else
+        echo "✅ Using existing container images (use 'cleanup' to force rebuild)"
     fi
     
-    echo "✅ MCP server is healthy"
+    echo "🚀 Starting all services..."
+    docker-compose -f docker-compose.test.yml up -d
+    
+    # Wait for health check with better error handling
+    echo "⏳ Waiting for services to be healthy (max 60s)..."
+    for i in {1..12}; do
+        if docker-compose -f docker-compose.test.yml ps | grep -q "(healthy)"; then
+            echo "✅ Services are healthy after ${i}0 seconds"
+            break
+        elif [ $i -eq 12 ]; then
+            echo -e "${RED}❌ Services failed to become healthy after 60 seconds${NC}"
+            echo "Container status:"
+            docker-compose -f docker-compose.test.yml ps
+            echo "MCP Server logs:"
+            docker-compose -f docker-compose.test.yml logs --tail 20 courtlistener-mcp-test
+            return 1
+        else
+            echo "  Still waiting... (${i}0s elapsed)"
+            sleep 5
+        fi
+    done
     
     echo "🧪 Running integration tests..."
     docker-compose -f docker-compose.test.yml run --rm mcp-test-runner
@@ -112,6 +129,47 @@ run_integration_only() {
     echo -e "${GREEN}🧪 Running Integration Tests Only${NC}"
     echo "=================================="
     
+    # Clean up any existing resources first
+    echo "🧹 Cleaning up existing containers and networks..."
+    docker-compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
+    
+    # Check if we need to build (only build if images don't exist or source changed)
+    if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
+       ! docker image inspect courtlistenermcp_mcp-test-runner >/dev/null 2>&1; then
+        echo "🔧 Building test containers (images don't exist)..."
+        docker-compose -f docker-compose.test.yml build
+    else
+        echo "✅ Using existing container images (use 'cleanup' to force rebuild)"
+    fi
+    
+    # Start Ollama service first and wait for it to be healthy
+    echo "🦙 Starting Ollama service..."
+    docker-compose -f docker-compose.test.yml up -d ollama
+    
+    echo "⏳ Waiting for Ollama to be healthy (max 300s - 5 minutes)..."
+    for i in {1..60}; do
+        status=$(docker-compose -f docker-compose.test.yml ps ollama | grep test-ollama)
+        if echo "$status" | grep -q "(healthy)"; then
+            echo "✅ Ollama is healthy after $((i*5)) seconds"
+            break
+        elif echo "$status" | grep -q "(health: starting)"; then
+            echo "  Ollama still starting... ($((i*5))s elapsed)"
+        elif [ $i -eq 60 ]; then
+            echo -e "${RED}❌ Ollama failed to become healthy after 300 seconds${NC}"
+            echo "Container status:"
+            docker-compose -f docker-compose.test.yml ps ollama
+            echo "Container logs:"
+            docker-compose -f docker-compose.test.yml logs --tail 20 ollama
+            return 1
+        else
+            echo "  Still waiting... ($((i*5))s elapsed)"
+        fi
+        sleep 5
+    done
+    
+    echo "🦙 Ensuring model is available..."
+    docker-compose -f docker-compose.test.yml exec -T ollama ollama pull llama3.2:1b || true
+    
     # Run just the integration test
     npm run test:docker
 }
@@ -121,10 +179,16 @@ cleanup_containers() {
     echo "================================"
     
     # Stop and remove containers
+    echo "🛑 Stopping containers..."
     docker-compose -f docker-compose.test.yml down --volumes --remove-orphans
     
     # Remove test images if they exist
-    docker images | grep courtlistener-mcp | awk '{print $3}' | xargs -r docker rmi || true
+    echo "🗑️  Removing test images..."
+    docker images | grep courtlistener-mcp | awk '{print $3}' | xargs -r docker rmi 2>/dev/null || true
+    
+    # Clean up any dangling images and networks
+    echo "🧽 Cleaning up dangling resources..."
+    docker system prune -f 2>/dev/null || true
     
     echo "✅ Cleanup complete"
 }
@@ -143,6 +207,20 @@ open_shell() {
     docker-compose -f docker-compose.test.yml exec mcp-test-runner bash
 }
 
+force_rebuild() {
+    echo -e "${YELLOW}🔨 Force Rebuilding All Images${NC}"
+    echo "=============================="
+    
+    # Stop and remove everything first
+    cleanup_containers
+    
+    # Force rebuild
+    echo "🔧 Force rebuilding all container images..."
+    docker-compose -f docker-compose.test.yml build --no-cache
+    
+    echo "✅ Rebuild complete"
+}
+
 # Main command processing
 case "${1:-help}" in
     "test")
@@ -155,6 +233,9 @@ case "${1:-help}" in
         ;;
     "cleanup")
         cleanup_containers
+        ;;
+    "rebuild")
+        force_rebuild
         ;;
     "logs")
         show_logs
