@@ -87,7 +87,7 @@ run_docker_tests() {
     docker-compose -f docker-compose.test.yml build
     
     echo "🚀 Starting MCP server container..."
-    docker-compose -f docker-compose.test.yml up -d --profile test
+    docker-compose -f docker-compose.test.yml up -d
     
     # Wait for health check
     echo "⏳ Waiting for MCP server to be healthy..."

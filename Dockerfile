@@ -5,7 +5,7 @@ FROM node:20.18.1-alpine3.21
 WORKDIR /app
 
 # Install security updates and dumb-init for proper signal handling
-RUN apk update && apk upgrade && apk add --no-cache dumb-init
+RUN apk update && apk upgrade && apk add --no-cache dumb-init bash
 
 # Copy package files
 COPY package*.json ./

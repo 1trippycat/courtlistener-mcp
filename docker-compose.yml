@@ -6,13 +6,45 @@ services:
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
+      # Uncomment if using local Ollama service:
+      # - OLLAMA_HOST=http://ollama:11434
     restart: unless-stopped
     # Keep container alive for MCP connections
     tty: true
     stdin_open: true
     networks:
       - swarm_net
+    # Uncomment if using local Ollama:
+    # depends_on:
+    #   - ollama
+
+  # Ollama service for local LLM functionality
+  # Uncomment this entire service to run Ollama locally
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: courtlistener-ollama
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   networks:
+  #     - swarm_net
+  #   restart: unless-stopped
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0
+  #   # Pull a small model with function calling support on startup
+  #   command: >
+  #     sh -c "
+  #       ollama serve &
+  #       sleep 10 &&
+  #       ollama pull llama3.2:1b &&
+  #       wait
+  #     "
 
 networks:
   swarm_net:
     external: true
+
+# Uncomment if using local Ollama:
+# volumes:
+#   ollama_data:
