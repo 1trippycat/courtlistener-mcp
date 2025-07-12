@@ -4,23 +4,55 @@ A Model Context Protocol (MCP) server that provides access to the CourtListener 
 
 ## Quick Start
 
-1. **Clone and Install**:
-   ```bash
-   git clone <repository-url>
-   cd CourtListener\ MCP
-   npm install
-   ```
+### 1. Setup Environment
+```bash
+git clone <repository-url>
+cd CourtListener\ MCP
+npm install
+npm run demo:setup  # Creates .env file
+# Edit .env and add your CourtListener API token
+```
 
-2. **Configure Environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your CourtListener API token
-   ```
+### 2. Run Interactive Demo
+```bash
+# Local development (requires local Ollama)
+npm run demo:local
 
-3. **Build and Run**:
+# Docker container (requires local Ollama)
+npm run demo:docker
+
+# Full Docker Compose setup
+npm run demo:compose
+```
+
+### 3. Check Your Setup
+```bash
+npm run demo:check  # Verifies environment and dependencies
+```
+
+For detailed demo setup instructions, see [docs/DEMO_SETUP_GUIDE.md](docs/DEMO_SETUP_GUIDE.md).
+
+## Basic MCP Server Usage
+
+1. **Build and Run**:
    ```bash
    npm run build
    npm start
+   ```
+
+2. **Using with Claude Desktop**: Add to your `claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "courtlistener": {
+         "command": "node",
+         "args": ["/path/to/CourtListener MCP/build/index.js"],
+         "env": {
+           "COURTLISTENER_API_TOKEN": "your_token_here"
+         }
+       }
+     }
+   }
    ```
 
 ## Environment Configuration
@@ -264,6 +296,26 @@ Get an API token from: https://www.courtlistener.com/api/
 This server interfaces with the CourtListener REST API v4. For detailed API documentation, see:
 https://www.courtlistener.com/help/api/rest/case-law/
 
+### Court Jurisdiction Codes
+
+When using court parameters in search tools, you'll need the correct court jurisdiction codes. CourtListener maintains a comprehensive list of all 3,352+ available jurisdictions with their codes:
+
+**📋 [Complete Court Codes Reference](https://www.courtlistener.com/help/api/jurisdictions/)**
+
+This reference includes:
+- **Federal Courts**: Supreme Court (`scotus`), Circuit Courts (`ca1`, `ca2`, etc.), District Courts (`cand`, `nysd`, etc.)
+- **State Courts**: All state supreme courts, appellate courts, and trial courts
+- **Specialty Courts**: Tax courts, bankruptcy courts, administrative courts
+- **Historical Courts**: Courts that are no longer active but have historical data
+
+**Common Examples:**
+- `scotus` - Supreme Court of the United States
+- `ca9` - Court of Appeals for the Ninth Circuit  
+- `cand` - Northern District of California
+- `nysd` - Southern District of New York
+- `cal` - California Supreme Court
+- `tex` - Texas Supreme Court
+
 ## Development
 
 ### Building
@@ -284,7 +336,28 @@ npm run test:coverage  # Generate coverage report
 npm run check-env   # Check environment configuration
 ```
 
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing documentation and best practices.
+### Demo Scripts
+
+Test the MCP server with various integration approaches:
+
+```bash
+# 🎯 RECOMMENDED: Interactive chat with AI assistant
+npm run demo:interactive
+
+# True MCP function calling with Ollama (automated test)
+npm run demo:mcp-integration
+
+# Advanced conversational interface  
+npm run demo:advanced
+```
+
+**🎯 Best User Experience**: Use `demo:interactive` for a full chat interface where you can ask legal questions and the AI will automatically use MCP tools to research answers.
+
+**⚙️ For Development**: Use `demo:mcp-integration` to test the technical integration between Ollama and MCP.
+
+**💡 New in v1.0**: Added `get-court-codes` tool so the AI can discover correct court abbreviations (e.g., "scotus" for Supreme Court).
+
+See [MCP_INTEGRATION_GUIDE.md](MCP_INTEGRATION_GUIDE.md) for detailed integration patterns and [TESTING_GUIDE.md](TESTING_GUIDE.md) for testing documentation.
 
 ## Docker Deployment
 

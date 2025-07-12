@@ -14,9 +14,21 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:integration": "jest tests/integration-*.test.ts",
+    "test:security": "jest tests/security*.test.ts",
+    "test:docker": "jest tests/integration-docker.test.ts",
+    "docker:test": "docker-compose -f docker-compose.test.yml up --build --profile test",
+    "docker:test-runner": "docker-compose -f docker-compose.test.yml up --build --profile test-runner",
+    "docker:test-cleanup": "docker-compose -f docker-compose.test.yml down --volumes --remove-orphans",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "check-env": "node check-env.js"
+    "check-env": "node scripts/check-env.js",
+    "demo:interactive": "npm run build && node demo/ollama-interactive.js",
+    "demo:local": "scripts/run-demo.sh local",
+    "demo:docker": "scripts/run-demo.sh docker",
+    "demo:compose": "scripts/run-demo.sh compose",
+    "demo:setup": "scripts/run-demo.sh setup",
+    "demo:check": "scripts/run-demo.sh check"
   },
   "files": [
     "build"
@@ -43,6 +55,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.1",
     "dotenv": "^17.2.0",
+    "node-fetch": "^3.3.2",
     "zod": "^3.25.76"
   }
 }

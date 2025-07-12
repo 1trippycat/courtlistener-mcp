@@ -30,8 +30,8 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S mcp -u 1001 -G nodejs
 
 # Copy and set up entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Change ownership of the app directory and remove write permissions
 RUN chown -R mcp:nodejs /app && \
@@ -51,7 +51,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "console.log('Health check: OK')" || exit 1
 
 # Use dumb-init for proper signal handling and entrypoint script
-ENTRYPOINT ["dumb-init", "--", "/app/entrypoint.sh"]
+ENTRYPOINT ["dumb-init", "--", "/app/docker-entrypoint.sh"]
 
 # Default command (can be overridden)
 CMD []

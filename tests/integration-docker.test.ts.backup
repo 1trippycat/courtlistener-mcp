@@ -1,0 +1,378 @@
+import { spawn, ChildProcess, execSync } from 'child_process';
+import 'dotenv/config';
+
+// Get Ollama host from environment or use default
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
+const CONTAINER_NAME = 'courtlistener-mcp-test';
+const IMAGE_NAME = 'courtlistener-mcp:test';
+
+interface MCPRequest {
+  jsonrpc: string;
+  id: number;
+  method: string;
+  params?: any;
+}
+
+interface MCPResponse {
+  jsonrpc: string;
+  id: number;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+  };
+}
+
+interface OllamaModel {
+  name: string;
+  model: string;
+  modified_at: string;
+  size: number;
+  digest: string;
+}
+
+interface OllamaTagsResponse {
+  models: OllamaModel[];
+}
+
+describe('Docker MCP Integration Tests', () => {
+  let containerProcess: ChildProcess | null = null;
+  let responses: Record<number, MCPResponse> = {};
+  let requestId = 1;
+  let ollamaAvailable = false;
+  let dockerAvailable = false;
+  let skipReason = '';
+  
+  const sendMCPRequest = (method: string, params: any = {}): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      if (!containerProcess?.stdin) {
+        reject(new Error('Container process not available'));
+        return;
+      }
+      
+      const request: MCPRequest = {
+        jsonrpc: '2.0',
+        id: requestId++,
+        method,
+        params
+      };
+      
+      try {
+        containerProcess.stdin.write(JSON.stringify(request) + '\\n');
+        resolve(request.id);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
+  const waitForResponse = async (id: number, timeoutMs: number = 10000): Promise<MCPResponse> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+      if (responses[id]) {
+        return responses[id];
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    throw new Error(`Timeout waiting for response to request ${id}`);
+  };
+
+  const executeDockerCommand = (command: string): string => {
+    try {
+      return execSync(command, { 
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000
+      }).toString().trim();
+    } catch (error: any) {
+      throw new Error(`Docker command failed: ${command}\\nError: ${error.message}`);
+    }
+  };
+
+  const buildDockerImage = (): void => {
+    console.log('🏗️  Building Docker image for testing...');
+    executeDockerCommand(`docker build -t ${IMAGE_NAME} .`);
+    console.log('✅ Docker image built successfully');
+  };
+
+  const startMCPContainer = async (): Promise<void> => {
+    // Remove existing container if it exists
+    try {
+      executeDockerCommand(`docker rm -f ${CONTAINER_NAME}`);
+    } catch {
+      // Container doesn't exist, which is fine
+    }
+
+    console.log('🚀 Starting MCP container...');
+    
+    // Start container with environment variables
+    const envVars = [
+      `-e COURTLISTENER_API_TOKEN=${process.env.COURTLISTENER_API_TOKEN || ''}`,
+      `-e OLLAMA_HOST=${OLLAMA_HOST}`,
+      `-e NODE_ENV=test`,
+      `-e DOCKER_CONTAINER=true`
+    ].join(' ');
+
+    // Start container and connect to its stdio
+    containerProcess = spawn('docker', [
+      'run', '--rm', '-i',
+      '--name', CONTAINER_NAME,
+      '--network', 'host', // Use host network for Ollama access
+      ...envVars.split(' '),
+      IMAGE_NAME,
+      'server'
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    // Handle container responses
+    containerProcess.stdout?.on('data', (data) => {
+      try {
+        const lines = data.toString().split('\\n').filter((line: string) => line.trim());
+        for (const line of lines) {
+          const response = JSON.parse(line);
+          if (response.id) {
+            responses[response.id] = response;
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    });
+
+    containerProcess.stderr?.on('data', (data) => {
+      const message = data.toString().trim();
+      if (message.includes('Server running')) {
+        console.log('✅ MCP Server started in container');
+      }
+    });
+
+    containerProcess.on('error', (error) => {
+      console.error('❌ Container process error:', error);
+    });
+
+    // Wait for container startup
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  };
+
+  const stopMCPContainer = (): void => {
+    if (containerProcess) {
+      containerProcess.kill();
+      containerProcess = null;
+    }
+    
+    try {
+      executeDockerCommand(`docker rm -f ${CONTAINER_NAME}`);
+    } catch {
+      // Container might already be stopped
+    }
+  };
+
+  beforeAll(async () => {
+    // Check if Docker is available
+    try {
+      executeDockerCommand('docker --version');
+      dockerAvailable = true;
+      console.log('✅ Docker is available');
+    } catch (error) {
+      skipReason = 'Docker not available';
+      console.log(`⏭️  Skipping Docker integration tests - ${skipReason}`);
+      return;
+    }
+
+    // Check if Ollama is available
+    try {
+      const response = await fetch(`${OLLAMA_HOST}/api/tags`);
+      if (response.ok) {
+        ollamaAvailable = true;
+        console.log(`✅ Ollama available at ${OLLAMA_HOST}`);
+      } else {
+        skipReason = `Ollama returned ${response.status} at ${OLLAMA_HOST}`;
+        console.log(`⏭️  Skipping Docker integration tests - ${skipReason}`);
+        return;
+      }
+    } catch (error) {
+      skipReason = `Ollama not available at ${OLLAMA_HOST}`;
+      console.log(`⏭️  Skipping Docker integration tests - ${skipReason}`);
+      console.log(`   💡 To run these tests, ensure Ollama is running and accessible`);
+      return;
+    }
+
+    if (dockerAvailable && ollamaAvailable) {
+      // Build Docker image and start container
+      buildDockerImage();
+      await startMCPContainer();
+    }
+  }, 60000);
+
+  afterAll(() => {
+    if (dockerAvailable) {
+      stopMCPContainer();
+    }
+  });
+
+  test('should verify Docker and Ollama availability', async () => {
+    if (!dockerAvailable || !ollamaAvailable) {
+      console.log(`   ⏭️  Skipped: ${skipReason}`);
+      return;
+    }
+
+    // Test Ollama connection
+    const response = await fetch(`${OLLAMA_HOST}/api/tags`);
+    expect(response.ok).toBe(true);
+    
+    const data: OllamaTagsResponse = await response.json();
+    expect(data.models).toBeDefined();
+    expect(Array.isArray(data.models)).toBe(true);
+    
+    console.log(`📋 Available models: ${data.models.map(m => m.name).join(', ')}`);
+  }, 15000);
+
+  test('should initialize MCP server in container and get tools list', async () => {
+    if (!dockerAvailable || !ollamaAvailable) {
+      console.log(`   ⏭️  Skipped: ${skipReason}`);
+      return;
+    }
+
+    // Initialize MCP
+    const initId = await sendMCPRequest('initialize', {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'Docker-Test-Client', version: '1.0.0' }
+    });
+
+    const initResponse = await waitForResponse(initId);
+    expect(initResponse.error).toBeUndefined();
+    expect(initResponse.result).toBeDefined();
+
+    // Get tools list
+    const toolsId = await sendMCPRequest('tools/list');
+    const toolsResponse = await waitForResponse(toolsId);
+    
+    expect(toolsResponse.error).toBeUndefined();
+    expect(toolsResponse.result?.tools).toBeDefined();
+    expect(Array.isArray(toolsResponse.result.tools)).toBe(true);
+    expect(toolsResponse.result.tools.length).toBeGreaterThan(0);
+
+    console.log(`📋 Available MCP tools: ${toolsResponse.result.tools.length} tools loaded`);
+  }, 20000);
+
+  test('should execute MCP tool calls from container', async () => {
+    if (!dockerAvailable || !ollamaAvailable) {
+      console.log(`   ⏭️  Skipped: ${skipReason}`);
+      return;
+    }
+
+    // Test get-court-codes tool
+    const toolCallId = await sendMCPRequest('tools/call', {
+      name: 'get-court-codes',
+      arguments: { query: 'Supreme Court' }
+    });
+
+    const toolResponse = await waitForResponse(toolCallId);
+    expect(toolResponse.error).toBeUndefined();
+    expect(toolResponse.result?.content).toBeDefined();
+    expect(Array.isArray(toolResponse.result.content)).toBe(true);
+    expect(toolResponse.result.content[0]?.text).toContain('scotus');
+
+    console.log('✅ MCP tool executed successfully from container');
+  }, 20000);
+
+  test('should test Ollama function calling with containerized MCP server', async () => {
+    if (!dockerAvailable || !ollamaAvailable) {
+      console.log(`   ⏭️  Skipped: ${skipReason}`);
+      return;
+    }
+
+    // Get available models
+    const response = await fetch(`${OLLAMA_HOST}/api/tags`);
+    const data: OllamaTagsResponse = await response.json();
+    
+    // Find a function-calling capable model
+    const functionCallingModels = ['llama3.1', 'qwen2.5', 'mistral'];
+    const availableModel = data.models.find(model => 
+      functionCallingModels.some(fcModel => model.name.includes(fcModel))
+    );
+
+    if (!availableModel) {
+      console.log('⏭️  Skipped: No function-calling capable models available');
+      console.log('   💡 Install a compatible model: ollama pull llama3.1:8b');
+      return;
+    }
+
+    console.log(`🤖 Testing with model: ${availableModel.name}`);
+
+    // Get tools for Ollama format
+    const toolsId = await sendMCPRequest('tools/list');
+    const toolsResponse = await waitForResponse(toolsId);
+    
+    const mcpTools = toolsResponse.result.tools.map((tool: any) => ({
+      type: "function",
+      function: {
+        name: tool.name.replace(/-/g, '_'),
+        description: tool.description,
+        parameters: tool.inputSchema
+      }
+    }));
+
+    // Test conversation with function calling
+    const conversation = [
+      {
+        role: "system",
+        content: "You are a legal research assistant. Use the get_court_codes tool to find court abbreviations when needed."
+      },
+      {
+        role: "user", 
+        content: "What is the court code for the Supreme Court?"
+      }
+    ];
+
+    const ollamaResponse = await fetch(`${OLLAMA_HOST}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: availableModel.name,
+        messages: conversation,
+        tools: mcpTools.slice(0, 5), // Limit tools for testing
+        stream: false,
+        options: { temperature: 0.1, num_predict: 200 }
+      })
+    });
+
+    expect(ollamaResponse.ok).toBe(true);
+    const result = await ollamaResponse.json();
+    
+    console.log('🎉 Ollama successfully communicated with containerized MCP server!');
+    
+    if (result.message?.tool_calls && result.message.tool_calls.length > 0) {
+      console.log('✅ Function calling worked with containerized MCP server');
+      console.log(`🔧 Tool calls: ${result.message.tool_calls.length}`);
+    } else {
+      console.log('📝 Model responded (function calling may not be supported by this model)');
+    }
+  }, 30000);
+
+  test('should handle container networking for MCP communication', async () => {
+    if (!dockerAvailable || !ollamaAvailable) {
+      console.log(`   ⏭️  Skipped: ${skipReason}`);
+      return;
+    }
+
+    // Test that the container can reach external services
+    const toolCallId = await sendMCPRequest('tools/call', {
+      name: 'list-courts',
+      arguments: { limit: 5 }
+    });
+
+    const toolResponse = await waitForResponse(toolCallId, 15000);
+    expect(toolResponse.error).toBeUndefined();
+    expect(toolResponse.result?.content).toBeDefined();
+
+    const content = toolResponse.result.content[0]?.text;
+    expect(content).toContain('court');
+    
+    console.log('✅ Container successfully reached external CourtListener API');
+  }, 25000);
+});

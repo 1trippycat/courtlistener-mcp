@@ -830,12 +830,12 @@ server.tool(
 // Tool: Search opinions
 server.tool(
   "search-opinions",
-  "Search for individual court opinions",
+  "Search for individual court opinions. Use get-court-codes first to find correct court abbreviations like 'scotus', 'ca9', etc.",
   {
     q: z.string().optional().describe("Search query text"),
     type: z.string().optional().describe("Opinion type (e.g., 'Lead Opinion', 'Concurrence', 'Dissent')"),
     author: z.string().optional().describe("Author name or ID"),
-    court: z.string().optional().describe("Court ID (e.g., 'scotus', 'ca9')"),
+    court: z.string().optional().describe("Court ID - use get-court-codes tool for examples (e.g., 'scotus' for Supreme Court, 'ca9' for Ninth Circuit)"),
     date_created_after: z.string().optional().describe("Find opinions created after this date (YYYY-MM-DD)"),
     date_created_before: z.string().optional().describe("Find opinions created before this date (YYYY-MM-DD)"),
     limit: z.number().min(1).max(100).default(10).describe("Number of results to return (max 100)"),
@@ -936,11 +936,11 @@ server.tool(
 // Tool: List courts
 server.tool(
   "list-courts",
-  "Get a list of available courts",
+  "Get a list of available courts. For common court codes like 'scotus', 'ca9', etc., use get-court-codes first.",
   {
     jurisdiction: z.string().optional().describe("Filter by jurisdiction (e.g., 'F' for Federal, 'S' for State)"),
-    in_use: z.boolean().optional().describe("Filter to only courts currently in use"),
-    has_opinion_scraper: z.boolean().optional().describe("Filter to courts with opinion scrapers"),
+    in_use: z.boolean().optional().describe("Filter to only courts currently in use (default: don't filter)"),
+    has_opinion_scraper: z.boolean().optional().describe("Filter to courts with opinion scrapers (default: don't filter)"),
     limit: z.number().min(1).max(100).default(20).describe("Number of results to return (max 100)"),
     auth_token: z.string().optional().describe("CourtListener API authentication token (optional)")
   },
@@ -1027,6 +1027,95 @@ server.tool(
         {
           type: "text",
           text: `Court Details:\\n\\n${formattedCourt}`,
+        },
+      ],
+    };
+  }
+);
+
+// Tool: Get common court codes and abbreviations
+server.tool(
+  "get-court-codes",
+  "Get a list of common court abbreviations and codes for searching",
+  {
+    jurisdiction: z.enum(["federal", "state", "all"]).optional().default("all").describe("Filter by jurisdiction type")
+  },
+  async ({ jurisdiction }) => {
+    const federalCourts = [
+      { id: "scotus", name: "Supreme Court of the United States", jurisdiction: "F" },
+      { id: "ca1", name: "Court of Appeals for the First Circuit", jurisdiction: "F" },
+      { id: "ca2", name: "Court of Appeals for the Second Circuit", jurisdiction: "F" },
+      { id: "ca3", name: "Court of Appeals for the Third Circuit", jurisdiction: "F" },
+      { id: "ca4", name: "Court of Appeals for the Fourth Circuit", jurisdiction: "F" },
+      { id: "ca5", name: "Court of Appeals for the Fifth Circuit", jurisdiction: "F" },
+      { id: "ca6", name: "Court of Appeals for the Sixth Circuit", jurisdiction: "F" },
+      { id: "ca7", name: "Court of Appeals for the Seventh Circuit", jurisdiction: "F" },
+      { id: "ca8", name: "Court of Appeals for the Eighth Circuit", jurisdiction: "F" },
+      { id: "ca9", name: "Court of Appeals for the Ninth Circuit", jurisdiction: "F" },
+      { id: "ca10", name: "Court of Appeals for the Tenth Circuit", jurisdiction: "F" },
+      { id: "ca11", name: "Court of Appeals for the Eleventh Circuit", jurisdiction: "F" },
+      { id: "cadc", name: "Court of Appeals for the District of Columbia Circuit", jurisdiction: "F" },
+      { id: "cafc", name: "Court of Appeals for the Federal Circuit", jurisdiction: "F" },
+      { id: "nysd", name: "Southern District of New York", jurisdiction: "F" },
+      { id: "nynd", name: "Northern District of New York", jurisdiction: "F" },
+      { id: "cand", name: "Northern District of California", jurisdiction: "F" },
+      { id: "casd", name: "Southern District of California", jurisdiction: "F" },
+      { id: "dcd", name: "District of Columbia District Court", jurisdiction: "F" },
+      { id: "texs", name: "Southern District of Texas", jurisdiction: "F" },
+    ];
+
+    const stateCourts = [
+      { id: "cal", name: "California Supreme Court", jurisdiction: "S" },
+      { id: "ny", name: "New York Court of Appeals", jurisdiction: "S" },
+      { id: "tex", name: "Texas Supreme Court", jurisdiction: "S" },
+      { id: "fla", name: "Florida Supreme Court", jurisdiction: "S" },
+      { id: "ill", name: "Illinois Supreme Court", jurisdiction: "S" },
+      { id: "pa", name: "Pennsylvania Supreme Court", jurisdiction: "S" },
+      { id: "ohio", name: "Ohio Supreme Court", jurisdiction: "S" },
+      { id: "mich", name: "Michigan Supreme Court", jurisdiction: "S" },
+      { id: "ga", name: "Georgia Supreme Court", jurisdiction: "S" },
+      { id: "nc", name: "North Carolina Supreme Court", jurisdiction: "S" },
+    ];
+
+    let courtsToShow: Array<{ id: string; name: string; jurisdiction: string }> = [];
+    
+    if (jurisdiction === "federal" || jurisdiction === "all") {
+      courtsToShow.push(...federalCourts);
+    }
+    
+    if (jurisdiction === "state" || jurisdiction === "all") {
+      courtsToShow.push(...stateCourts);
+    }
+
+    const formattedCourts = courtsToShow.map(court => 
+      `• **${court.id}** - ${court.name} (${court.jurisdiction === 'F' ? 'Federal' : 'State'})`
+    ).join('\\n');
+
+    const helpText = `
+**Common Court Codes and Abbreviations:**
+
+${formattedCourts}
+
+**Usage Examples:**
+- Use "scotus" for Supreme Court cases
+- Use "ca9" for Ninth Circuit appeals
+- Use "nysd" for Southern District of New York cases
+- Use "cal" for California Supreme Court cases
+
+**Tips:**
+- Federal courts use jurisdiction "F" 
+- State courts use jurisdiction "S"
+- Circuit courts are "ca" + number (ca1, ca2, etc.)
+- District courts often use state abbreviation + direction (nysd, cand, etc.)
+
+**To find more courts:** Use the list-courts tool with appropriate filters.
+`;
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: helpText,
         },
       ],
     };

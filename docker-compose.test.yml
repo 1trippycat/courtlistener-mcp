@@ -1,0 +1,65 @@
+version: '3.8'
+
+# Docker Compose for Testing MCP Server Integration
+# This setup runs both MCP server and tests in containers on the same network
+
+services:
+  # CourtListener MCP Server for Testing
+  courtlistener-mcp-test:
+    build: .
+    container_name: courtlistener-mcp-test
+    environment:
+      - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
+      - OLLAMA_HOST=http://ai_ollama:11434
+      - NODE_ENV=test
+      - DOCKER_CONTAINER=true
+    networks:
+      - test_net
+      - swarm_net
+    # Keep container alive for testing
+    tty: true
+    stdin_open: true
+    # Override default command to run server
+    command: ["server"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('MCP Server Health OK')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - test
+
+  # Test runner service  
+  mcp-test-runner:
+    build: 
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: mcp-test-runner
+    environment:
+      - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
+      - OLLAMA_HOST=http://ai_ollama:11434
+      - MCP_SERVER_CONTAINER=courtlistener-mcp-test
+      - NODE_ENV=test
+      - DOCKER_CONTAINER=true
+    volumes:
+      - ./tests:/app/tests
+      - ./jest.config.cjs:/app/jest.config.cjs
+      - ./tsconfig.test.json:/app/tsconfig.test.json
+      - ./package.json:/app/package.json
+    networks:
+      - test_net
+      - swarm_net
+    depends_on:
+      courtlistener-mcp-test:
+        condition: service_healthy
+    # Run containerized tests
+    command: ["npm", "run", "test:docker"]
+    profiles:
+      - test-runner
+
+networks:
+  test_net:
+    driver: bridge
+  # Connect to your external swarm network
+  swarm_net:
+    external: true

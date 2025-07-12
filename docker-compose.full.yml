@@ -1,0 +1,45 @@
+version: '3.8'
+
+# Docker Compose for MCP + Ollama Integration Testing
+# This setup allows the MCP server to communicate with existing Ollama service on swarm_net
+
+services:
+  # CourtListener MCP Server
+  courtlistener-mcp:
+    image: ghcr.io/1trippycat/courtlistener-mcp:latest
+    container_name: courtlistener-mcp
+    environment:
+      - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
+      - NODE_ENV=production
+      - OLLAMA_HOST=http://ai_ollama:11434
+    restart: unless-stopped
+    # Keep container alive for MCP connections
+    tty: true
+    stdin_open: true
+    networks:
+      - swarm_net
+
+  # Demo runner (optional - for testing integration)
+  mcp-demo:
+    build: .
+    container_name: mcp-demo
+    environment:
+      - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
+      - OLLAMA_HOST=http://ai_ollama:11434
+      - NODE_ENV=development
+      - DOCKER_CONTAINER=true
+    volumes:
+      - .:/app
+    working_dir: /app
+    networks:
+      - swarm_net
+    depends_on:
+      - courtlistener-mcp
+    # Run the interactive demo (override with other commands as needed)
+    command: ["demo"]
+    profiles:
+      - demo
+
+networks:
+  swarm_net:
+    external: true

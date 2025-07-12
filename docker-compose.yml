@@ -11,8 +11,8 @@ services:
     tty: true
     stdin_open: true
     networks:
-      - mcp-network
+      - swarm_net
 
 networks:
-  mcp-network:
+  swarm_net:
     external: true

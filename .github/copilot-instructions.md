@@ -39,6 +39,18 @@ This MCP server provides tools to interact with the CourtListener API (https://w
 - Rate limiting and error handling
 - TypeScript implementation with proper type definitions
 
+## Court Jurisdiction Codes
+
+When using court parameters, refer to the comprehensive list of all 3,352+ available court jurisdiction codes:
+**https://www.courtlistener.com/help/api/jurisdictions/**
+
+Common examples:
+- `scotus` - Supreme Court of the United States
+- `ca9` - Court of Appeals for the Ninth Circuit
+- `cand` - Northern District of California
+- `nysd` - Southern District of New York
+- `cal` - California Supreme Court
+
 ## Usage Guidelines
 
 When working with this codebase:
