@@ -26,7 +26,8 @@ print_usage() {
     echo "Commands:"
     echo "  test        - Run all Docker tests"
     echo "  integration - Run integration tests only"
-    echo "  cleanup     - Clean up test containers and networks"
+    echo "  cleanup     - Clean up test containers and networks (preserves volumes)"
+    echo "  full-cleanup - Clean up everything including volumes (forces rebuild)"
     echo "  rebuild     - Force rebuild of all images"
     echo "  logs        - Show test container logs"
     echo "  shell       - Open shell in test container"
@@ -83,9 +84,9 @@ run_docker_tests() {
     echo -e "${GREEN}🐳 Running Docker Tests${NC}"
     echo "======================="
     
-    # Clean up any existing resources first
-    echo "🧹 Cleaning up existing containers and networks..."
-    docker-compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
+    # Clean up networks and orphaned containers, but preserve volumes
+    echo "🧹 Cleaning up networks and orphaned containers..."
+    docker-compose -f docker-compose.test.yml down --remove-orphans 2>/dev/null || true
     
     # Check if we need to build (only build if images don't exist)
     if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
@@ -93,27 +94,29 @@ run_docker_tests() {
         echo "🔧 Building test containers (images don't exist)..."
         docker-compose -f docker-compose.test.yml build
     else
-        echo "✅ Using existing container images (use 'cleanup' to force rebuild)"
+        echo "✅ Using existing container images (use 'rebuild' to force rebuild)"
     fi
     
     echo "🚀 Starting all services..."
     docker-compose -f docker-compose.test.yml up -d
     
-    # Wait for health check with better error handling
-    echo "⏳ Waiting for services to be healthy (max 60s)..."
-    for i in {1..12}; do
+    # Wait for health check with better error handling (extended timeout for Ollama)
+    echo "⏳ Waiting for services to be healthy (max 300s - 5 minutes)..."
+    for i in {1..60}; do
         if docker-compose -f docker-compose.test.yml ps | grep -q "(healthy)"; then
-            echo "✅ Services are healthy after ${i}0 seconds"
+            echo "✅ Services are healthy after $((i*5)) seconds"
             break
-        elif [ $i -eq 12 ]; then
-            echo -e "${RED}❌ Services failed to become healthy after 60 seconds${NC}"
+        elif [ $i -eq 60 ]; then
+            echo -e "${RED}❌ Services failed to become healthy after 300 seconds${NC}"
             echo "Container status:"
             docker-compose -f docker-compose.test.yml ps
             echo "MCP Server logs:"
             docker-compose -f docker-compose.test.yml logs --tail 20 courtlistener-mcp-test
+            echo "Ollama logs:"
+            docker-compose -f docker-compose.test.yml logs --tail 20 ollama
             return 1
         else
-            echo "  Still waiting... (${i}0s elapsed)"
+            echo "  Still waiting... ($((i*5))s elapsed)"
             sleep 5
         fi
     done
@@ -129,9 +132,9 @@ run_integration_only() {
     echo -e "${GREEN}🧪 Running Integration Tests Only${NC}"
     echo "=================================="
     
-    # Clean up any existing resources first
-    echo "🧹 Cleaning up existing containers and networks..."
-    docker-compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
+    # Clean up any existing resources first, but preserve volumes to avoid re-downloading models
+    echo "🧹 Cleaning up networks and orphaned containers..."
+    docker-compose -f docker-compose.test.yml down --remove-orphans 2>/dev/null || true
     
     # Check if we need to build (only build if images don't exist or source changed)
     if ! docker image inspect courtlistenermcp_courtlistener-mcp-test >/dev/null 2>&1 || \
@@ -139,47 +142,69 @@ run_integration_only() {
         echo "🔧 Building test containers (images don't exist)..."
         docker-compose -f docker-compose.test.yml build
     else
-        echo "✅ Using existing container images (use 'cleanup' to force rebuild)"
+        echo "✅ Using existing container images (use 'rebuild' to force rebuild)"
     fi
     
-    # Start Ollama service first and wait for it to be healthy
-    echo "🦙 Starting Ollama service..."
-    docker-compose -f docker-compose.test.yml up -d ollama
-    
-    echo "⏳ Waiting for Ollama to be healthy (max 300s - 5 minutes)..."
-    for i in {1..60}; do
-        status=$(docker-compose -f docker-compose.test.yml ps ollama | grep test-ollama)
-        if echo "$status" | grep -q "(healthy)"; then
-            echo "✅ Ollama is healthy after $((i*5)) seconds"
-            break
-        elif echo "$status" | grep -q "(health: starting)"; then
-            echo "  Ollama still starting... ($((i*5))s elapsed)"
-        elif [ $i -eq 60 ]; then
-            echo -e "${RED}❌ Ollama failed to become healthy after 300 seconds${NC}"
-            echo "Container status:"
-            docker-compose -f docker-compose.test.yml ps ollama
-            echo "Container logs:"
-            docker-compose -f docker-compose.test.yml logs --tail 20 ollama
-            return 1
-        else
-            echo "  Still waiting... ($((i*5))s elapsed)"
-        fi
-        sleep 5
-    done
+    # Check if Ollama is already running and healthy
+    if docker-compose -f docker-compose.test.yml ps ollama 2>/dev/null | grep -q "(healthy)"; then
+        echo "✅ Ollama is already healthy, reusing existing container"
+    else
+        # Start Ollama service and wait for it to be healthy
+        echo "🦙 Starting Ollama service..."
+        docker-compose -f docker-compose.test.yml up -d ollama
+        
+        echo "⏳ Waiting for Ollama to be healthy (max 300s - 5 minutes)..."
+        for i in {1..60}; do
+            status=$(docker-compose -f docker-compose.test.yml ps ollama | grep test-ollama)
+            if echo "$status" | grep -q "(healthy)"; then
+                echo "✅ Ollama is healthy after $((i*5)) seconds"
+                break
+            elif echo "$status" | grep -q "(health: starting)"; then
+                echo "  Ollama still starting... ($((i*5))s elapsed)"
+            elif [ $i -eq 60 ]; then
+                echo -e "${RED}❌ Ollama failed to become healthy after 300 seconds${NC}"
+                echo "Container status:"
+                docker-compose -f docker-compose.test.yml ps ollama
+                echo "Container logs:"
+                docker-compose -f docker-compose.test.yml logs --tail 20 ollama
+                return 1
+            else
+                echo "  Still waiting... ($((i*5))s elapsed)"
+            fi
+            sleep 5
+        done
+    fi
     
     echo "🦙 Ensuring model is available..."
     docker-compose -f docker-compose.test.yml exec -T ollama ollama pull llama3.2:1b || true
     
-    # Run just the integration test
-    npm run test:docker
+    # Run integration tests inside the container where OLLAMA_HOST is properly set
+    echo "🧪 Running integration tests in container..."
+    docker-compose -f docker-compose.test.yml run --rm mcp-test-runner
 }
 
 cleanup_containers() {
-    echo -e "${YELLOW}🧹 Cleaning Up Docker Resources${NC}"
-    echo "================================"
+    echo -e "${YELLOW}🧹 Smart Cleanup (Preserves Volumes)${NC}"
+    echo "===================================="
     
-    # Stop and remove containers
+    # Stop and remove containers but preserve volumes to avoid re-downloading models
     echo "🛑 Stopping containers..."
+    docker-compose -f docker-compose.test.yml down --remove-orphans
+    
+    # Clean up dangling images and networks
+    echo "🧽 Cleaning up dangling resources..."
+    docker system prune -f 2>/dev/null || true
+    
+    echo "✅ Smart cleanup complete (volumes preserved)"
+    echo "💡 Use 'full-cleanup' to remove volumes and force model re-download"
+}
+
+full_cleanup_containers() {
+    echo -e "${YELLOW}🧹 Full Cleanup (Removes Everything)${NC}"
+    echo "===================================="
+    
+    # Stop and remove containers AND volumes
+    echo "🛑 Stopping containers and removing volumes..."
     docker-compose -f docker-compose.test.yml down --volumes --remove-orphans
     
     # Remove test images if they exist
@@ -190,7 +215,7 @@ cleanup_containers() {
     echo "🧽 Cleaning up dangling resources..."
     docker system prune -f 2>/dev/null || true
     
-    echo "✅ Cleanup complete"
+    echo "✅ Full cleanup complete"
 }
 
 show_logs() {
@@ -212,7 +237,7 @@ force_rebuild() {
     echo "=============================="
     
     # Stop and remove everything first
-    cleanup_containers
+    full_cleanup_containers
     
     # Force rebuild
     echo "🔧 Force rebuilding all container images..."
@@ -233,6 +258,9 @@ case "${1:-help}" in
         ;;
     "cleanup")
         cleanup_containers
+        ;;
+    "full-cleanup")
+        full_cleanup_containers
         ;;
     "rebuild")
         force_rebuild

@@ -30,6 +30,14 @@
 **Implementation**: Added local Ollama service to docker-compose.test.yml with smallest function-calling model  
 **Prevention**: Always use service names for internal Docker Compose communication, external references for cross-stack  
 
+### Lesson: Smart Container Cleanup During Development
+**Date**: July 12, 2025  
+**Issue**: Repeatedly destroying healthy containers (especially Ollama) wastes time and resources  
+**Problem**: Ollama takes 5+ minutes to download models, full cleanup destroys this work unnecessarily  
+**Investigation**: Need smart cleanup that preserves healthy containers but cleans networks/volumes to prevent conflicts  
+**Solution**: Implement tiered cleanup - preserve healthy containers, only destroy when forcing rebuild or on code changes  
+**Prevention**: Always clean up dangling images, networks, and volumes between builds, but preserve working containers when possible  
+
 ## Project Organization
 
 ### Lesson: Working software is #1 priority
