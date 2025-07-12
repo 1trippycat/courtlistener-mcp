@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # CourtListener MCP Server - Standalone
   courtlistener-mcp:
     image: ghcr.io/1trippycat/courtlistener-mcp:latest
     container_name: courtlistener-mcp
@@ -18,12 +19,8 @@ services:
       retries: 3
     networks:
       - mcp-network
-    # MCP servers communicate via stdio, not HTTP ports
-    # For debugging, you can uncomment the following to access the container:
-    # ports:
-    #   - "8080:8080"  # Only if you add HTTP endpoints for debugging
 
-  # Optional: Open WebUI for AI-powered legal research
+  # Optional: Open WebUI for AI chat interface with MCP integration
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
@@ -32,13 +29,23 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
     environment:
-      # Configure MCP server connection  
       - 'MCP_SERVERS={"courtlistener": {"command": "docker", "args": ["exec", "courtlistener-mcp", "node", "/app/build/index.js"]}}'
     depends_on:
-      - courtlistener-mcp
+      courtlistener-mcp:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - mcp-network
+
+  # Example: Add to your existing services
+  # your-existing-service:
+  #   image: your-app:latest
+  #   environment:
+  #     - MCP_SERVER_HOST=courtlistener-mcp
+  #   depends_on:
+  #     - courtlistener-mcp
+  #   networks:
+  #     - mcp-network
 
 volumes:
   open-webui-data:

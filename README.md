@@ -108,15 +108,37 @@ Get your API token from: https://www.courtlistener.com/api/
 
 ### Using Docker
 
-1. Build the Docker image:
-   ```bash
-   docker build -t courtlistener-mcp .
-   ```
+#### Option 1: Use Published Image
+```bash
+# Pull and run the published image
+docker pull ghcr.io/1trippycat/courtlistener-mcp:latest
+docker run -d --name courtlistener-mcp \
+  -e COURTLISTENER_API_TOKEN=your_token_here \
+  ghcr.io/1trippycat/courtlistener-mcp:latest
+```
 
-2. Or use Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
+#### Option 2: Build Locally
+```bash
+# Build the Docker image locally
+docker build -t courtlistener-mcp .
+docker run -d --name courtlistener-mcp \
+  -e COURTLISTENER_API_TOKEN=your_token_here \
+  courtlistener-mcp
+```
+
+#### Option 3: Use Docker Compose
+```bash
+# Copy the example compose file
+cp docker-compose.example.yml docker-compose.yml
+
+# Edit environment variables in .env file
+cp .env.example .env
+
+# Start services
+docker-compose up -d
+```
+
+**Note**: MCP servers communicate via stdio/exec, not HTTP ports. The container doesn't expose ports but can be accessed by MCP clients using `docker exec` commands.
 
 ## Usage
 
@@ -266,7 +288,104 @@ See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing documentation
 
 ## Docker Deployment
 
-### Build and Run
+### Using Published Image
+
+The easiest way to use this MCP server is with the published Docker image:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/1trippycat/courtlistener-mcp:latest
+
+# Run with your API token
+docker run -d \
+  --name courtlistener-mcp \
+  -e COURTLISTENER_API_TOKEN=your_api_token_here \
+  ghcr.io/1trippycat/courtlistener-mcp:latest
+```
+
+### Using Docker Compose
+
+Use the included `docker-compose.example.yml` file:
+
+```bash
+# Copy the example compose file
+cp docker-compose.example.yml docker-compose.yml
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env and set your COURTLISTENER_API_TOKEN
+
+# Start all services (including optional Open WebUI)
+docker-compose up -d
+
+# Or start just the MCP server
+docker-compose up -d courtlistener-mcp
+
+# Check logs
+docker-compose logs -f courtlistener-mcp
+
+# Stop services
+docker-compose down
+```
+
+### Build and Run Locally
+docker-compose logs -f courtlistener-mcp
+```
+
+## MCP Communication
+
+The CourtListener MCP server communicates via the Model Context Protocol using stdio transport. Here are the main ways to connect:
+
+### Docker Exec Method (Recommended for containerized environments)
+```bash
+# Connect via docker exec
+docker exec -i courtlistener-mcp node /app/build/index.js
+```
+
+### Direct Node.js Method (For local development)
+```bash
+# Connect directly to the built application
+node build/index.js
+```
+
+### Integration Examples
+
+#### With MCP Client Applications
+```json
+{
+  "mcpServers": {
+    "courtlistener": {
+      "command": "docker",
+      "args": ["exec", "-i", "courtlistener-mcp", "node", "/app/build/index.js"]
+    }
+  }
+}
+```
+
+#### With Custom Applications
+```bash
+# Example: Connect and send MCP messages
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | \
+  docker exec -i courtlistener-mcp node /app/build/index.js
+```
+
+### Debugging Container Communication:
+
+```bash
+# Test if container is running
+docker ps | grep courtlistener-mcp
+
+# Check container logs
+docker logs courtlistener-mcp
+
+# Execute commands in container
+docker exec -it courtlistener-mcp node /app/build/index.js
+
+# Check health status
+docker inspect courtlistener-mcp --format='{{.State.Health.Status}}'
+```
+
+### Build from Source
 ```bash
 # Build the image
 docker build -t courtlistener-mcp .
@@ -275,21 +394,12 @@ docker build -t courtlistener-mcp .
 docker run -d --name courtlistener-mcp courtlistener-mcp
 ```
 
-### Using Docker Compose
-```bash
-# Start the service
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop the service
-docker-compose down
-```
-
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for production deployment
-- `COURTLISTENER_API_TOKEN`: Your CourtListener API token (optional)
+- `COURTLISTENER_API_TOKEN`: Your CourtListener API token (optional but recommended)
+- `RATE_LIMIT_REQUESTS`: Requests per minute (default: 100)
+- `RATE_LIMIT_WINDOW_MS`: Rate limit window in milliseconds (default: 60000)
+- `REQUEST_TIMEOUT_MS`: API request timeout (default: 30000)
 
 ## Rate Limiting
 
