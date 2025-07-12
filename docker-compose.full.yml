@@ -1,45 +1,83 @@
 version: '3.8'
 
-# Docker Compose for MCP + Ollama Integration Testing
-# This setup allows the MCP server to communicate with existing Ollama service on swarm_net
+# Full CourtListener MCP + Ollama + Demo Stack
+# Complete development and demonstration environment with Ollama integration
 
 services:
+  # Ollama LLM service - built around Ollama (cloud integrations coming soon)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: courtlistener-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - mcp_full_network
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    # Pull the configured model on startup
+    command: >
+      sh -c "
+        ollama serve &
+        sleep 10 &&
+        ollama pull ${OLLAMA_MODEL:-qwen2.5:7b} &&
+        wait
+      "
+
   # CourtListener MCP Server
   courtlistener-mcp:
     image: ghcr.io/1trippycat/courtlistener-mcp:latest
-    container_name: courtlistener-mcp
+    container_name: courtlistener-mcp-full
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
-      - OLLAMA_HOST=http://ai_ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
+      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-30000}
     restart: unless-stopped
     # Keep container alive for MCP connections
     tty: true
     stdin_open: true
     networks:
-      - swarm_net
+      - mcp_full_network
+    depends_on:
+      ollama:
+        condition: service_healthy
 
-  # Demo runner (optional - for testing integration)
+  # Demo application for testing MCP + Ollama integration
   mcp-demo:
     build: .
-    container_name: mcp-demo
+    container_name: courtlistener-demo
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
-      - OLLAMA_HOST=http://ai_ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
       - NODE_ENV=development
       - DOCKER_CONTAINER=true
     volumes:
       - .:/app
     working_dir: /app
     networks:
-      - swarm_net
+      - mcp_full_network
     depends_on:
       - courtlistener-mcp
+      - ollama
     # Run the interactive demo (override with other commands as needed)
-    command: ["demo"]
-    profiles:
-      - demo
+    command: ["npm", "run", "demo:interactive"]
 
 networks:
-  swarm_net:
-    external: true
+  mcp_full_network:
+    driver: bridge
+
+volumes:
+  ollama_data:

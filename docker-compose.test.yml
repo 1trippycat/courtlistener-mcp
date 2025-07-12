@@ -1,19 +1,19 @@
 version: '3.8'
 
-# Docker Compose for Testing MCP Server Integration
-# This setup runs Ollama and tests in containers on the same network
+# Test Environment for CourtListener MCP + Ollama Integration
+# Isolated testing environment with configurable Ollama model
 
 services:
-  # Ollama service for testing
+  # Ollama service for testing - built around Ollama (cloud integrations coming soon)
   ollama:
     image: ollama/ollama:latest
-    container_name: test-ollama
+    container_name: courtlistener-test-ollama
     ports:
-      - "11435:11434"  # Map to different port to avoid conflict
+      - "11435:11434"  # Map to different port to avoid conflict with dev instance
     volumes:
       - ollama_test_data:/root/.ollama
     networks:
-      - courtlistener_integration_net
+      - courtlistener_test_net
     environment:
       - OLLAMA_HOST=0.0.0.0
     healthcheck:
@@ -22,7 +22,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 60s
-    # Use default Ollama startup and pull model after
     restart: unless-stopped
 
   # Test runner service  
@@ -30,19 +29,23 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.test
-    container_name: mcp-test-runner
+    container_name: courtlistener-test-runner
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL_TEST:-qwen2.5:7b}
       - NODE_ENV=test
       - DOCKER_CONTAINER=true
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
+      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-30000}
     volumes:
       - ./tests:/app/tests
       - ./jest.config.cjs:/app/jest.config.cjs
       - ./tsconfig.test.json:/app/tsconfig.test.json
       - ./package.json:/app/package.json
     networks:
-      - courtlistener_integration_net
+      - courtlistener_test_net
     depends_on:
       ollama:
         condition: service_healthy
@@ -52,7 +55,7 @@ services:
     command: ["bash", "-c", "while true; do sleep 30; done"]
 
 networks:
-  courtlistener_integration_net:
+  courtlistener_test_net:
     external: true
 
 volumes:

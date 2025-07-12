@@ -38,13 +38,16 @@ print_usage() {
     echo "  help        - Show this help"
     echo ""
     echo "Environment Variables:"
-    echo "  COURTLISTENER_API_TOKEN - Your API token (required)"
-    echo "  OLLAMA_HOST            - Ollama endpoint (default: http://ollama:11434)"
+    echo "  COURTLISTENER_API_TOKEN  - Your API token (required)"
+    echo "  OLLAMA_HOST             - Ollama endpoint (default: http://ollama:11434)"
+    echo "  OLLAMA_MODEL_TEST       - Test model (default: qwen2.5:7b)"
     echo ""
     echo "Examples:"
     echo "  $0 integration           # Run tests, keep containers"
     echo "  $0 integration && $0 cleanup  # Run tests then cleanup"
     echo "  $0 full-cleanup          # Remove everything"
+    echo ""
+    echo "Note: Built around Ollama (cloud integrations coming soon)"
 }
 
 check_dependencies() {
@@ -150,11 +153,11 @@ run_integration_only() {
     fi
     
     # Ensure the external network exists
-    if ! docker network ls | grep -q "courtlistener_integration_net"; then
-        echo "🔗 Creating external network..."
-        docker network create courtlistener_integration_net
+    if ! docker network ls | grep -q "courtlistener_test_net"; then
+        echo "🔗 Creating external test network..."
+        docker network create courtlistener_test_net
     else
-        echo "✅ External network already exists"
+        echo "✅ External test network already exists"
     fi
     
     # Start all services at once and let Docker Compose handle dependencies
@@ -187,15 +190,15 @@ run_integration_only() {
     done
     
     echo "🦙 Ensuring model is available..."
-    docker-compose -f docker-compose.test.yml exec -T ollama ollama pull qwen2.5:7b || true
+    docker-compose -f docker-compose.test.yml exec -T ollama ollama pull ${OLLAMA_MODEL_TEST:-qwen2.5:7b} || true
     
     # Run integration tests using exec instead of run to avoid network recreation
-    echo "🧪 Running integration tests in container..."
-    if docker-compose -f docker-compose.test.yml exec -T mcp-test-runner npm run test:docker; then
-        echo "✅ Integration tests completed successfully"
+    echo "🧪 Running comprehensive tests in container..."
+    if docker-compose -f docker-compose.test.yml exec -T mcp-test-runner bash -c "npm run test:docker && npm run test -- tests/llm-driven.test.ts && npm run test -- tests/container-security.test.ts"; then
+        echo "✅ All tests completed successfully"
         echo "💡 Containers left running for reuse (use '$0 cleanup' to stop them)"
     else
-        echo -e "${RED}❌ Integration tests failed${NC}"
+        echo -e "${RED}❌ Some tests failed${NC}"
         echo "💡 Use '$0 cleanup' to stop containers or '$0 full-cleanup' to remove everything"
         return 1
     fi
@@ -234,8 +237,8 @@ full_cleanup_containers() {
     docker system prune -f 2>/dev/null || true
     
     # Remove the external network
-    echo "🗑️  Removing external network..."
-    docker network rm courtlistener_integration_net 2>/dev/null || true
+    echo "🗑️  Removing external test network..."
+    docker network rm courtlistener_test_net 2>/dev/null || true
     
     echo "✅ Full cleanup complete"
 }

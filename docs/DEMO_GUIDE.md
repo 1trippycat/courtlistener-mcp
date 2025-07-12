@@ -1,53 +1,134 @@
-# CourtListener MCP Server - Demo Guide
+# Demo Guide
 
-This guide shows you how to demo and test the CourtListener MCP server with various AI clients, including Ollama.
+The CourtListener MCP project includes flexible demo options that work in different environments: local development, Docker containers, and full Docker Compose setups. This guide shows you how to demo and test the CourtListener MCP server with various AI clients, including Ollama integration.
 
-## Quick Demo
+## 🚀 Quick Start
 
-### 1. Simple Demo (Recommended)
-
-For a quick working demonstration:
-
+### 1. Environment Setup
 ```bash
+# Copy environment file and configure
+cp .env.example .env
+# Edit .env and add your COURTLISTENER_API_TOKEN
+# Configure OLLAMA_MODEL if using AI integration
+```
+
+### 2. Choose Your Demo Mode
+
+#### **Recommended**: Interactive Demo with AI
+```bash
+# Best experience - full chat interface with AI
+npm run demo:interactive
+```
+
+#### Simple Demo (Quick Test)
+```bash
+# Streamlined demo for basic testing
 npm run demo:simple
 ```
 
-This streamlined demo:
-- ✅ Tests Ollama connectivity
-- 🚀 Starts the MCP server  
-- 🏛️ Fetches real court data
-- 🤖 Uses Ollama for AI analysis
-- 💭 Shows practical AI + legal data integration
-
-### 2. Basic Interactive Demo
-
-Run the built-in interactive demo to see all MCP tools in action:
-
+#### Built-in Interactive Demo
 ```bash
+# Basic MCP server demonstration
 npm run demo
 ```
 
-This will:
-- Start the MCP server
-- Show available tools
-- Demonstrate court searches
-- Display sample dockets and opinions
-- Show the server capabilities
+## 🐳 Docker Demo Options
 
-### 3. Interactive Mode
+### Local Development with Ollama
+```bash
+# Ensure Ollama is running locally
+ollama serve
+ollama pull qwen2.5:7b
 
-For hands-on testing:
+# Run the demo
+npm run demo:local
+```
+
+### Full Docker Stack Demo
+```bash
+# Complete environment with integrated Ollama
+docker-compose -f docker-compose.full.yml --profile demo up
+
+# Or without demo container (just MCP + Ollama)
+docker-compose -f docker-compose.full.yml up -d
+npm run demo:interactive
+```
+
+### Docker with External Ollama
+```bash
+# Demo in container with local Ollama
+npm run demo:docker
+```
+
+## 🤖 AI Integration Demos
+
+> **Note**: This system is built around Ollama for local AI functionality. Cloud-based integrations are coming soon.
+
+### Interactive Chat Demo (🎯 Recommended)
+
+The best demonstration experience:
 
 ```bash
 npm run demo:interactive
 ```
 
-This provides an interactive shell where you can:
-- Type `help` for commands
-- Test individual tools
-- Explore the API interactively
+**Features**:
+- ✅ Full chat interface where you can ask legal questions
+- 🚀 AI automatically uses MCP tools to research answers  
+- 🏛️ Real-time CourtListener API integration
+- 🤖 Configurable Ollama models via OLLAMA_MODEL
+- 💭 Natural conversation with legal research capabilities
 
-## Ollama Integration Demo
+**Example Conversations**:
+```
+You: "Find recent Supreme Court cases about First Amendment"
+AI: I'll search for recent Supreme Court First Amendment cases...
+    [Uses search-clusters tool with court: "scotus"]
+    [Analyzes results and provides summary]
+
+You: "Tell me about the court structure in California"  
+AI: Let me look up California court information...
+    [Uses get-court tool for California courts]
+    [Explains court hierarchy]
+```
+
+### Technical Integration Demo
+
+For developers testing MCP integration:
+
+```bash
+npm run demo:mcp-integration
+```
+
+**What it demonstrates**:
+- ✅ Real MCP communication via JSON-RPC
+- 🚀 Direct tool calling between Ollama and MCP server  
+- 📋 Configurable model support (OLLAMA_MODEL environment variable)
+- 🤖 Function calling with legal context
+- 💡 AI-powered legal research workflow
+- 🔍 Dynamic query generation and execution
+- 📊 Complete analysis and insights pipeline
+
+### Advanced Integration Demo
+
+```bash
+npm run demo:advanced
+```
+
+Advanced conversational interface with:
+- Multi-turn conversations
+- Context retention
+- Advanced query planning
+- Legal domain expertise
+
+## 🔧 Environment Detection & Setup
+
+The demos automatically detect your environment and provide appropriate setup instructions:
+
+- **Container Environment**: Docker-specific troubleshooting
+- **Docker Compose Available**: Containerized setup suggestions  
+- **Local Development**: Local installation instructions
+- **Ollama Detection**: Model availability and recommendations
 
 ### Prerequisites
 
@@ -56,57 +137,116 @@ This provides an interactive shell where you can:
    ```bash
    ollama serve
    ```
-3. **Pull a model**:
+3. **Pull a recommended model**:
    ```bash
-   ollama pull llama3.2
-   # or
-   ollama pull llama2
+   # Best function calling support (default)
+   ollama pull qwen2.5:7b
+   
+   # Alternative faster model
+   ollama pull llama3.2:3b
+   
+   # Minimal resource model
+   ollama pull llama3.2:1b
    ```
 
-### Run the Integration Demo
+## 🧪 Testing Your Demo
+
+### Demo Verification
 
 ```bash
-npm run demo:ollama
+npm run test:demo
 ```
 
-This sophisticated demo will:
-1. ✅ Check if Ollama is running
-2. 🚀 Start the CourtListener MCP server
-3. 📋 Fetch real court data via MCP tools
-4. 🤖 Use Ollama to analyze the legal information
-5. 💡 Generate intelligent search suggestions
-6. 🔍 Execute those searches via MCP
-7. 📊 Provide final analysis and insights
+Verifies:
+- ✅ MCP server starts correctly
+- ✅ Tools are registered and accessible  
+- ✅ Sample API calls work
+- ✅ Ollama availability and model access
+- ✅ Environment configuration
 
-### What the Ollama Demo Shows
+### Full Integration Tests
 
-The integration demonstrates:
-- **Real MCP Communication**: Direct JSON-RPC calls to MCP tools
-- **AI-Powered Analysis**: Ollama analyzes court data and suggests searches
-- **Dynamic Queries**: AI generates search terms based on context
-- **Legal Research Workflow**: Complete cycle from data retrieval to insights
+```bash
+npm test                                    # All tests
+npm run test:docker                        # Docker integration
+./scripts/test-docker.sh integration      # Full E2E testing
+```
 
-## Manual Testing with Claude Desktop
+## 📋 Demo Scenarios
+
+### Scenario 1: Legal Research Assistant
+
+Show how an AI can:
+1. **Search for cases by topic**: "Find cases about data privacy"
+2. **Analyze court jurisdictions**: "What courts handle patent disputes?"
+3. **Find related opinions**: "Show similar cases to this Supreme Court ruling"
+4. **Track case trends**: "How has the court ruled on tech issues recently?"
+
+### Scenario 2: Court Information Lookup
+
+Demonstrate:
+1. **Court details**: "Tell me about the 9th Circuit Court structure"
+2. **Jurisdiction understanding**: "Which court would handle this type of case?"
+3. **Court-specific data**: "Show recent activity in the Southern District of New York"
+
+### Scenario 3: Advanced Legal Analysis (with Ollama)
+
+With AI integration:
+1. **Smart research suggestions**: AI analyzes context and suggests relevant searches
+2. **Dynamic query generation**: AI creates search terms based on legal concepts
+3. **Automated analysis**: AI summarizes findings and identifies patterns
+4. **Legal insights**: AI provides domain-specific analysis of court data
+
+## 🐳 Docker Demo Configurations
+
+### Standalone Demo
+```bash
+# Basic MCP server demo
+docker-compose up -d
+docker-compose exec courtlistener-mcp npm run demo
+```
+
+### Full Stack Demo
+```bash
+# Complete environment with Ollama
+docker-compose -f docker-compose.full.yml up -d
+
+# Run interactive demo
+docker-compose -f docker-compose.full.yml exec courtlistener-mcp npm run demo:interactive
+
+# Or use the dedicated demo container
+docker-compose -f docker-compose.full.yml --profile demo up
+```
+
+### Test Environment Demo
+```bash
+# Isolated testing environment
+./scripts/test-docker.sh integration
+
+# Access demo in test environment
+./scripts/test-docker.sh shell
+npm run demo:interactive
+```
+
+## 🛠️ Manual Testing with Claude Desktop
 
 ### 1. Build the Server
-
 ```bash
 npm run build
 ```
 
 ### 2. Configure Claude Desktop
 
-Add to your Claude Desktop configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Add to your configuration file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "courtlistener": {
-      "command": "node",
-      "args": ["/absolute/path/to/CourtListener MCP/build/index.js"],
+      "command": "docker",
+      "args": ["exec", "-i", "courtlistener-mcp", "node", "/app/build/index.js"],
       "env": {
         "COURTLISTENER_API_TOKEN": "your_api_token_here"
       }
@@ -115,93 +255,20 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-### 3. Test in Claude Desktop
+### 3. Test Queries in Claude Desktop
 
-Restart Claude Desktop and try queries like:
+Try these example queries:
 - "Search for recent Supreme Court cases about technology"
-- "Find information about the 9th Circuit Court"
+- "Find information about the 9th Circuit Court"  
 - "Look up recent opinions mentioning artificial intelligence"
+- "Show me federal district courts in California"
+- "Find cases with docket number containing 'cv-2023'"
 
-## Docker Demo
-
-### Build and Run with Docker
-
-```bash
-# Build the image
-docker build -t courtlistener-mcp .
-
-# Run with environment variables
-docker run -e COURTLISTENER_API_TOKEN=your_token_here courtlistener-mcp
-```
-
-### Using Docker Compose
-
-```bash
-# Copy and configure environment
-cp .env.example .env
-# Edit .env with your API token
-
-# Start with Docker Compose
-docker-compose up
-```
-
-## Testing Your Demo
-
-### Run Demo Tests
-
-```bash
-npm run test:demo
-```
-
-This verifies:
-- ✅ MCP server starts correctly
-- ✅ Tools are registered and accessible
-- ✅ Sample API calls work
-- ✅ Ollama availability (if running)
-
-### Full Test Suite
-
-```bash
-npm test
-```
-
-Runs all 35+ tests including:
-- Security validation
-- API integration
-- Tool functionality
-- Error handling
-
-## Demo Scenarios
-
-### Scenario 1: Legal Research Assistant
-
-Show how an AI can:
-1. Search for cases by topic
-2. Analyze court jurisdictions
-3. Find related opinions
-4. Track case trends
-
-### Scenario 2: Court Information Lookup
-
-Demonstrate:
-1. Getting detailed court information
-2. Understanding court hierarchies
-3. Accessing court-specific data
-
-### Scenario 3: Advanced Legal Analysis
-
-With Ollama integration:
-1. AI suggests research directions
-2. Dynamically generates search queries
-3. Analyzes and summarizes findings
-4. Provides legal insights
-
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### MCP Server Issues
-
 ```bash
-# Check environment
+# Check environment configuration
 npm run check-env
 
 # View detailed logs
@@ -212,31 +279,44 @@ npm run demo:interactive
 ```
 
 ### Ollama Issues
-
 ```bash
 # Check if Ollama is running
 curl http://localhost:11434/api/tags
 
-# Start Ollama
+# Start Ollama service
 ollama serve
 
 # List available models
 ollama list
 
-# Pull a smaller model for testing
-ollama pull phi3:mini
+# Pull recommended model for testing
+ollama pull qwen2.5:7b
 ```
 
 ### API Issues
-
-- Verify your CourtListener API token is valid
-- Check rate limits (100 requests/minute by default)
+- Verify CourtListener API token is valid and set in `.env`
+- Check rate limits (authenticated: 50K/hour, unauthenticated: 5K/hour)
 - Ensure internet connectivity for API calls
+- Review logs for specific error messages
 
-## Integration Examples
+### Docker Issues
+```bash
+# Check container status
+docker-compose ps
+
+# View container logs
+docker-compose logs courtlistener-mcp
+
+# Access container shell
+docker-compose exec courtlistener-mcp bash
+
+# Restart services
+docker-compose restart
+```
+
+## 🚀 Integration Examples
 
 ### Custom MCP Client
-
 ```javascript
 import { spawn } from 'child_process';
 
@@ -257,23 +337,23 @@ mcp.stdin.write(JSON.stringify(request) + '\n');
 ```
 
 ### With Open WebUI
+Add MCP server configuration to Open WebUI for a complete legal research interface integrated with your AI workflow.
 
-Add MCP server configuration to Open WebUI for a complete legal research interface.
+## 📊 Performance Notes
 
-## Performance Notes
+- **Cold start**: ~2-3 seconds
+- **API response time**: ~1-5 seconds per query  
+- **Memory usage**: ~50-100MB (standalone), ~2-4GB (with Ollama)
+- **Concurrent requests**: Handles multiple MCP clients
+- **Model performance**: qwen2.5:7b provides best function calling accuracy
 
-- Cold start: ~2-3 seconds
-- API response time: ~1-5 seconds per query
-- Memory usage: ~50-100MB
-- Concurrent requests: Handles multiple MCP clients
+## 🔮 Next Steps
 
-## Next Steps
-
-1. **Integrate with your AI workflow**
-2. **Customize tools for specific legal domains**
-3. **Add more court systems or legal databases**
-4. **Build domain-specific analysis tools**
+1. **Integrate with your AI workflow**: Add to Claude Desktop, Open WebUI, or custom applications
+2. **Customize for specific domains**: Extend tools for specialized legal research areas  
+3. **Scale deployment**: Use Docker Compose for production environments
+4. **Explore cloud integration**: Cloud-based AI integrations coming soon
 
 ---
 
-🎉 **Ready to demo!** Start with `npm run demo` and explore the powerful combination of MCP and AI for legal research.
+🎉 **Ready to demo!** Start with `npm run demo:interactive` for the best experience, or explore specific deployment types using the Docker configurations.

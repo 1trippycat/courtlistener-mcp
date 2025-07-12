@@ -1,22 +1,18 @@
 version: '3.8'
 
-# Default Docker Compose - Standalone MCP Server
-# For full Ollama integration, use: docker-compose -f docker-compose.full.yml up
-# For testing environment, use: docker-compose -f docker-compose.test.yml up
+# Standalone CourtListener MCP Server
+# Use this for basic MCP server functionality without Ollama integration
 
 services:
   courtlistener-mcp:
     image: ghcr.io/1trippycat/courtlistener-mcp:latest
-    container_name: courtlistener-mcp
+    container_name: courtlistener-mcp-standalone
     environment:
       - COURTLISTENER_API_TOKEN=${COURTLISTENER_API_TOKEN}
       - NODE_ENV=production
       - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
       - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-30000}
-      # Uncomment if using external Ollama service:
-      # - OLLAMA_HOST=${OLLAMA_HOST:-http://localhost:11434}
-      # - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
     restart: unless-stopped
     # Keep container alive for MCP connections
     tty: true

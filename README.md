@@ -2,68 +2,82 @@
 
 A Model Context Protocol (MCP) server that provides access to the CourtListener API, enabling AI assistants to search and retrieve information about US court cases, opinions, dockets, and court information.
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Setup Environment
+### 1. Choose Your Deployment
 ```bash
-git clone <repository-url>
-cd CourtListener\ MCP
-npm install
-npm run demo:setup  # Creates .env file
-# Edit .env and add your CourtListener API token
+# Standalone MCP server (minimal)
+docker-compose up -d
+
+# Full stack with Ollama integration (built around Ollama - cloud integrations coming soon)
+docker-compose -f docker-compose.full.yml up -d
+
+# Testing environment
+./scripts/test-docker.sh integration
 ```
 
-### 2. Run Interactive Demo
+### 2. Setup Environment
 ```bash
-# Local development (requires local Ollama)
-npm run demo:local
-
-# Docker container (requires local Ollama)
-npm run demo:docker
-
-# Full Docker Compose setup
-npm run demo:compose
+cp .env.example .env
+# Edit .env and add your COURTLISTENER_API_TOKEN
+# Configure OLLAMA_MODEL if using AI integration
 ```
 
-### 3. Check Your Setup
+### 3. Run Interactive Demo
 ```bash
-npm run demo:check  # Verifies environment and dependencies
+# Local development with Ollama integration
+npm run demo:interactive
+
+# Docker-based demo (starts all services including demo)
+docker-compose -f docker-compose.full.yml up
 ```
 
-For detailed demo setup instructions, see [docs/DEMO_SETUP_GUIDE.md](docs/DEMO_SETUP_GUIDE.md).
+For detailed setup instructions, see [docs/DOCKER_GUIDE.md](docs/DOCKER_GUIDE.md).
 
-## Basic MCP Server Usage
+## 📋 Documentation
 
-1. **Build and Run**:
-   ```bash
-   npm run build
-   npm start
-   ```
+- **[Docker Guide](docs/DOCKER_GUIDE.md)** - Complete Docker deployment guide (standalone, full, test)
+- **[MCP Integration](docs/MCP_INTEGRATION_GUIDE.md)** - Integration patterns and examples
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Development and testing procedures
+- **[Demo Guide](docs/DEMO_GUIDE.md)** - Interactive demonstrations
+- **[RECAP Tools](docs/RECAP_TOOLS.md)** - PACER/federal court document tools
+- **[Quick Examples](docs/QUICK_EXAMPLES.md)** - Common usage patterns
 
-2. **Using with Claude Desktop**: Add to your `claude_desktop_config.json`:
-   ```json
-   {
-     "mcpServers": {
-       "courtlistener": {
-         "command": "node",
-         "args": ["/path/to/CourtListener MCP/build/index.js"],
-         "env": {
-           "COURTLISTENER_API_TOKEN": "your_token_here"
-         }
-       }
-     }
-   }
-   ```
+## 🐳 Docker Configurations
 
-## Environment Configuration
-
-Create a `.env` file based on `.env.example`:
-
+### Standalone (Default)
+Basic MCP server without AI integration:
 ```bash
-# Required: Your CourtListener API token
+docker-compose up -d
+```
+
+### Full Stack
+Complete environment with Ollama integration:
+```bash
+docker-compose -f docker-compose.full.yml up -d
+```
+
+### Test Environment
+Isolated testing with configurable models:
+```bash
+./scripts/test-docker.sh integration
+```
+
+> **Note**: This system is built around Ollama for local AI functionality. Cloud-based integrations are coming soon.
+
+## 🔧 Configuration
+
+### Environment Variables (.env)
+```bash
+# Required
 COURTLISTENER_API_TOKEN=your_api_token_here
 
-# Optional: Security settings
+# Ollama Configuration (Built around Ollama - cloud integrations coming soon)
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b              # Production model
+OLLAMA_MODEL_TEST=qwen2.5:7b         # Test model
+
+# Security Settings
 RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW_MS=60000
 REQUEST_TIMEOUT_MS=30000
@@ -71,450 +85,146 @@ REQUEST_TIMEOUT_MS=30000
 
 Get your API token from: https://www.courtlistener.com/api/
 
-## Features
-
-- **Comprehensive Search**: Search across dockets, opinion clusters, individual opinions, and courts
-- **Detailed Information**: Get specific details about any court case, opinion, or court
-- **Flexible Filtering**: Use various filters including date ranges, court jurisdictions, case names, and more
-- **Authentication Support**: Works with both authenticated and unauthenticated requests
-- **Rate Limiting**: Built-in rate limiting and security controls
-- **Docker Support**: Easy deployment with Docker and Docker Compose
-
-## Available Tools
-
-### Case Law (Opinion-based data)
-
-#### Dockets
-- `search-dockets` - Search for court dockets using various filters
-- `get-docket` - Get detailed information about a specific docket by ID
-
-#### Opinion Clusters
-- `search-clusters` - Search for opinion clusters (groups of related opinions)
-- `get-cluster` - Get detailed information about a specific opinion cluster by ID
-
-#### Opinions
-- `search-opinions` - Search for individual court opinions
-- `get-opinion` - Get detailed information about a specific opinion by ID
-
-#### Courts
-- `list-courts` - Get a list of available courts
-- `get-court` - Get detailed information about a specific court by ID
-
-### RECAP/PACER (Docket-based data)
-
-#### Docket Entries
-- `search-docket-entries` - Search for docket entries within a specific docket
-- `get-docket-entry` - Get detailed information about a specific docket entry by ID
-
-#### Parties
-- `search-parties` - Search for parties within a specific docket
-- `get-party` - Get detailed information about a specific party by ID
-
-#### Attorneys
-- `search-attorneys` - Search for attorneys within a specific docket
-- `get-attorney` - Get detailed information about a specific attorney by ID
-
-#### RECAP Documents
-- `search-recap-documents` - Search for RECAP documents within a specific docket entry
-- `get-recap-document` - Get detailed information about a specific RECAP document by ID
-- `recap-query` - Fast document lookup by court, case number, and document number
-
-## Installation
-
-### Prerequisites
-
-- Node.js 18+ (Node.js 20+ recommended for full compatibility)
-- npm or yarn
-
-### From Source
-
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Build the project:
-   ```bash
-   npm run build
-   ```
-
-### Using Docker
-
-#### Option 1: Use Published Image
-```bash
-# Pull and run the published image
-docker pull ghcr.io/1trippycat/courtlistener-mcp:latest
-docker run -d --name courtlistener-mcp \
-  -e COURTLISTENER_API_TOKEN=your_token_here \
-  ghcr.io/1trippycat/courtlistener-mcp:latest
-```
-
-#### Option 2: Build Locally
-```bash
-# Build the Docker image locally
-docker build -t courtlistener-mcp .
-docker run -d --name courtlistener-mcp \
-  -e COURTLISTENER_API_TOKEN=your_token_here \
-  courtlistener-mcp
-```
-
-#### Option 3: Use Docker Compose
-```bash
-# Copy the example compose file
-cp docker-compose.example.yml docker-compose.yml
-
-# Edit environment variables in .env file
-cp .env.example .env
-
-# Start services
-docker-compose up -d
-```
-
-**Note**: MCP servers communicate via stdio/exec, not HTTP ports. The container doesn't expose ports but can be accessed by MCP clients using `docker exec` commands.
-
-## Usage
-
-### With Claude for Desktop
-
-1. Build the project:
-   ```bash
-   npm run build
-   ```
-
-2. Add to your Claude Desktop configuration file:
-
-   **macOS/Linux**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   **Windows**: `%APPDATA%\\Claude\\claude_desktop_config.json`
-
-   ```json
-   {
-     "mcpServers": {
-       "courtlistener": {
-         "command": "node",
-         "args": ["path/to/courtlistener-mcp/build/index.js"]
-       }
-     }
-   }
-   ```
-
-3. Restart Claude for Desktop
-
-### With Other MCP Clients
-
-The server communicates via stdio transport. Run it with:
-
-```bash
-node build/index.js
-```
-
-## Tool Usage Examples
-
-### Case Law Examples
-
-#### Search for Supreme Court Cases
-```
-Use the search-clusters tool with:
-- court: "scotus" 
-- precedential_status: "Published"
-- limit: 10
-```
-
-#### Find Cases by Docket Number
-```
-Use the search-dockets tool with:
-- docket_number: "23A994"
-- court: "scotus"
-```
-
-#### Search Opinions by Author
-```
-Use the search-opinions tool with:
-- author: "Roberts"
-- court: "scotus"
-- limit: 5
-```
-
-#### Get Court Information
-```
-Use the get-court tool with:
-- court_id: "scotus"
-```
-
-### RECAP/PACER Examples
-
-#### Search Docket Entries for a Case
-```
-Use the search-docket-entries tool with:
-- docket_id: 12345
-- description: "motion"
-- limit: 20
-```
-
-#### Find Parties in a Case
-```
-Use the search-parties tool with:
-- docket_id: 12345
-- name: "Corporation"
-```
-
-#### List Attorneys for a Case
-```
-Use the search-attorneys tool with:
-- docket_id: 12345
-- name: "Smith"
-```
-
-#### Search Documents in a Docket Entry
-```
-Use the search-recap-documents tool with:
-- docket_entry_id: 67890
-- document_type: "Motion"
-- is_available: true
-```
-
-#### Fast Document Lookup
-```
-Use the recap-query tool with:
-- court: "nysd"
-- docket_number: "1:20-cv-12345"
-- document_number: 1
-```
-
-## Authentication
-
-While many CourtListener API endpoints work without authentication, you can provide an API token for:
-- Higher rate limits
-- Access to additional features
-- Priority processing
-
-To use authentication, pass the `auth_token` parameter to any tool call, or set the `COURTLISTENER_API_TOKEN` environment variable.
-
-Get an API token from: https://www.courtlistener.com/api/
-
-## API Reference
-
-This server interfaces with the CourtListener REST API v4. For detailed API documentation, see:
-https://www.courtlistener.com/help/api/rest/case-law/
-
-### Court Jurisdiction Codes
-
-When using court parameters in search tools, you'll need the correct court jurisdiction codes. CourtListener maintains a comprehensive list of all 3,352+ available jurisdictions with their codes:
-
-**📋 [Complete Court Codes Reference](https://www.courtlistener.com/help/api/jurisdictions/)**
-
-This reference includes:
-- **Federal Courts**: Supreme Court (`scotus`), Circuit Courts (`ca1`, `ca2`, etc.), District Courts (`cand`, `nysd`, etc.)
-- **State Courts**: All state supreme courts, appellate courts, and trial courts
-- **Specialty Courts**: Tax courts, bankruptcy courts, administrative courts
-- **Historical Courts**: Courts that are no longer active but have historical data
-
-**Common Examples:**
-- `scotus` - Supreme Court of the United States
-- `ca9` - Court of Appeals for the Ninth Circuit  
-- `cand` - Northern District of California
-- `nysd` - Southern District of New York
-- `cal` - California Supreme Court
-- `tex` - Texas Supreme Court
-
-## Development
-
-### Building
-```bash
-npm run build
-```
-
-### Development Mode
-```bash
-npm run dev
-```
-
-### Running Tests
-```bash
-npm test            # Run all tests
-npm run test:watch  # Run tests in watch mode
-npm run test:coverage  # Generate coverage report
-npm run check-env   # Check environment configuration
-```
-
-### Demo Scripts
-
-Test the MCP server with various integration approaches:
-
-```bash
-# 🎯 RECOMMENDED: Interactive chat with AI assistant
-npm run demo:interactive
-
-# True MCP function calling with Ollama (automated test)
-npm run demo:mcp-integration
-
-# Advanced conversational interface  
-npm run demo:advanced
-```
-
-**🎯 Best User Experience**: Use `demo:interactive` for a full chat interface where you can ask legal questions and the AI will automatically use MCP tools to research answers.
-
-**⚙️ For Development**: Use `demo:mcp-integration` to test the technical integration between Ollama and MCP.
-
-**💡 New in v1.0**: Added `get-court-codes` tool so the AI can discover correct court abbreviations (e.g., "scotus" for Supreme Court).
-
-See [MCP_INTEGRATION_GUIDE.md](MCP_INTEGRATION_GUIDE.md) for detailed integration patterns and [TESTING_GUIDE.md](TESTING_GUIDE.md) for testing documentation.
-
-## Docker Deployment
-
-### Using Published Image
-
-The easiest way to use this MCP server is with the published Docker image:
-
-```bash
-# Pull the latest image
-docker pull ghcr.io/1trippycat/courtlistener-mcp:latest
-
-# Run with your API token
-docker run -d \
-  --name courtlistener-mcp \
-  -e COURTLISTENER_API_TOKEN=your_api_token_here \
-  ghcr.io/1trippycat/courtlistener-mcp:latest
-```
-
-### Using Docker Compose
-
-Use the included `docker-compose.example.yml` file:
-
-```bash
-# Copy the example compose file
-cp docker-compose.example.yml docker-compose.yml
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env and set your COURTLISTENER_API_TOKEN
-
-# Start the MCP server
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f courtlistener-mcp
-
-# Stop services
-docker-compose down
-```
-
-### Build and Run Locally
-docker-compose logs -f courtlistener-mcp
-```
-
-## MCP Communication
-
-The CourtListener MCP server communicates via the Model Context Protocol using stdio transport. Here are the main ways to connect:
-
-### Docker Exec Method (Recommended for containerized environments)
-```bash
-# Connect via docker exec
-docker exec -i courtlistener-mcp node /app/build/index.js
-```
-
-### Direct Node.js Method (For local development)
-```bash
-# Connect directly to the built application
-node build/index.js
-```
-
-### Integration Examples
-
-#### With MCP Client Applications
+## 🛠️ Available Tools
+
+### Case Law Tools
+- **search-dockets**: Search for court dockets using various filters
+- **get-docket**: Get detailed information about a specific docket by ID
+- **search-clusters**: Search for opinion clusters (groups of related opinions)
+- **get-cluster**: Get detailed information about a specific opinion cluster by ID
+- **search-opinions**: Search for individual court opinions
+- **get-opinion**: Get detailed information about a specific opinion by ID
+- **list-courts**: Get a list of available courts
+- **get-court**: Get detailed information about a specific court by ID
+
+### RECAP/PACER Tools
+- **search-docket-entries**: Search for docket entries within a specific docket
+- **get-docket-entry**: Get detailed information about a specific docket entry by ID
+- **search-parties**: Search for parties within a specific docket
+- **get-party**: Get detailed information about a specific party by ID
+- **search-attorneys**: Search for attorneys within a specific docket
+- **get-attorney**: Get detailed information about a specific attorney by ID
+- **search-recap-documents**: Search for RECAP documents within a specific docket entry
+- **get-recap-document**: Get detailed information about a specific RECAP document by ID
+- **recap-query**: Fast document lookup by court, case number, and document number
+
+## 💡 Usage Examples
+
+### With Claude Desktop
+Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "courtlistener": {
       "command": "docker",
-      "args": ["exec", "-i", "courtlistener-mcp", "node", "/app/build/index.js"]
+      "args": ["exec", "-i", "courtlistener-mcp", "node", "/app/build/index.js"],
+      "env": {
+        "COURTLISTENER_API_TOKEN": "your_token_here"
+      }
     }
   }
 }
 ```
 
-#### With Custom Applications
-```bash
-# Example: Connect and send MCP messages
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | \
-  docker exec -i courtlistener-mcp node /app/build/index.js
+### Common Searches
+```
+# Search Supreme Court cases
+"Use search-clusters with court: 'scotus' and precedential_status: 'Published'"
+
+# Find cases by docket number  
+"Use search-dockets with docket_number: '23A994' and court: 'scotus'"
+
+# Search by author
+"Use search-opinions with author: 'Roberts' and court: 'scotus'"
+
+# Fast document lookup
+"Use recap-query with court: 'nysd', docket_number: '1:20-cv-12345', document_number: 1"
 ```
 
-### Debugging Container Communication:
+## 🏛️ Court Jurisdiction Codes
 
+Reference the comprehensive list of all 3,352+ available court jurisdiction codes:
+**[CourtListener Court Codes](https://www.courtlistener.com/help/api/jurisdictions/)**
+
+**Common Examples:**
+- `scotus` - Supreme Court of the United States
+- `ca9` - Court of Appeals for the Ninth Circuit
+- `cand` - Northern District of California
+- `nysd` - Southern District of New York
+- `cal` - California Supreme Court
+
+## 🔧 Development
+
+### Building
 ```bash
-# Test if container is running
-docker ps | grep courtlistener-mcp
-
-# Check container logs
-docker logs courtlistener-mcp
-
-# Execute commands in container
-docker exec -it courtlistener-mcp node /app/build/index.js
-
-# Check health status
-docker inspect courtlistener-mcp --format='{{.State.Health.Status}}'
+npm install
+npm run build
 ```
 
-### Build from Source
+### Testing
 ```bash
-# Build the image
-docker build -t courtlistener-mcp .
-
-# Run the container
-docker run -d --name courtlistener-mcp courtlistener-mcp
+npm test                    # Run all tests
+npm run test:docker        # Run Docker integration tests
+./scripts/test-docker.sh integration  # Full integration testing
 ```
 
-### Environment Variables
-- `NODE_ENV`: Set to "production" for production deployment
-- `COURTLISTENER_API_TOKEN`: Your CourtListener API token (optional but recommended)
-- `RATE_LIMIT_REQUESTS`: Requests per minute (default: 100)
-- `RATE_LIMIT_WINDOW_MS`: Rate limit window in milliseconds (default: 60000)
-- `REQUEST_TIMEOUT_MS`: API request timeout (default: 30000)
+### Demo Scripts
+```bash
+npm run demo:interactive    # 🎯 RECOMMENDED: Full chat interface
+npm run demo:mcp-integration # Technical MCP integration test
+npm run demo:advanced      # Advanced conversational interface
+```
 
-## Rate Limiting
+### Local Development
+```bash
+npm run dev                 # Development mode
+npm run demo:check         # Verify environment setup
+```
 
-The CourtListener API has rate limits:
+## 🔐 Authentication & Rate Limits
+
 - **Unauthenticated**: 5,000 requests per hour
 - **Authenticated**: 50,000 requests per hour
 
-The server automatically handles rate limiting and provides meaningful error messages when limits are exceeded.
+While many endpoints work without authentication, providing an API token enables:
+- Higher rate limits
+- Access to additional features
+- Priority processing
 
-## Data Sources
+## 📊 Data Sources
 
 CourtListener contains millions of court documents from:
 - Supreme Court of the United States
-- Federal Courts of Appeals
-- Federal District Courts
-- State Supreme Courts
-- Many other federal and state courts
-
-Data sources include:
-- Court websites
+- Federal Courts of Appeals and District Courts
+- State Supreme Courts and Appellate Courts
 - PACER (federal court records)
 - Harvard Caselaw Access Project
-- Resource.org
 - Other legal databases
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests (when test framework is set up)
+4. Add tests for new functionality
 5. Submit a pull request
 
-## License
+## 📄 License
 
 MIT License - see LICENSE file for details
 
-## Support
+## 🔗 Resources
 
-- CourtListener API Documentation: https://www.courtlistener.com/help/api/
-- MCP Documentation: https://modelcontextprotocol.io/
+- **CourtListener API**: https://www.courtlistener.com/help/api/
+- **Model Context Protocol**: https://modelcontextprotocol.io/
+- **Free Law Project**: https://free.law/
+
+## 🆘 Support
+
 - Report issues on GitHub
+- Check [docs/](docs/) for detailed guides
+- Review [TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for troubleshooting
 
-## Acknowledgments
+---
 
-- Free Law Project for maintaining CourtListener
-- Model Context Protocol team for the MCP framework
-- The open source legal data community
+> **Built for the Legal Community**: Enabling AI assistants to access comprehensive US court data through the Model Context Protocol.
